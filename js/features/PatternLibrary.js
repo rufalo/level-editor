@@ -4,7 +4,6 @@
  */
 export class PatternLibrary {
     constructor() {
-        console.log('Pattern Library - Future feature (disabled)');
         this.isEnabled = false;
     }
     
@@ -13,7 +12,6 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     saveCell() {
-        console.log('Pattern Library - saveCell() disabled (future feature)');
         return false;
     }
     
@@ -22,7 +20,6 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     loadCell() {
-        console.log('Pattern Library - loadCell() disabled (future feature)');
         return null;
     }
     
@@ -31,7 +28,6 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     getSavedCells() {
-        console.log('Pattern Library - getSavedCells() disabled (future feature)');
         return [];
     }
     
@@ -40,7 +36,7 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     clearOldPatternLibrary() {
-        console.log('Pattern Library - clearOldPatternLibrary() disabled (future feature)');
+        // Disabled
     }
     
     /**
@@ -48,7 +44,7 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     loadCellShelf() {
-        console.log('Pattern Library - loadCellShelf() disabled (future feature)');
+        // Disabled
     }
     
     /**
@@ -56,7 +52,6 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     createCellThumbnail() {
-        console.log('Pattern Library - createCellThumbnail() disabled (future feature)');
         return null;
     }
     
@@ -65,7 +60,7 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     renderCellPreview() {
-        console.log('Pattern Library - renderCellPreview() disabled (future feature)');
+        // Disabled
     }
     
     /**
@@ -73,7 +68,7 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     deleteCellFromShelf() {
-        console.log('Pattern Library - deleteCellFromShelf() disabled (future feature)');
+        // Disabled
     }
     
     /**
@@ -81,7 +76,7 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     setupCellShelfDragDrop() {
-        console.log('Pattern Library - setupCellShelfDragDrop() disabled (future feature)');
+        // Disabled
     }
     
     /**
@@ -89,7 +84,7 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     saveCellToShelf() {
-        console.log('Pattern Library - saveCellToShelf() disabled (future feature)');
+        // Disabled
     }
     
     /**
@@ -97,7 +92,7 @@ export class PatternLibrary {
      * @deprecated This feature is disabled
      */
     placeCellFromShelf() {
-        console.log('Pattern Library - placeCellFromShelf() disabled (future feature)');
+        // Disabled
     }
     
     /**

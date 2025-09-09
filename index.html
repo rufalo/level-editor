@@ -253,9 +253,16 @@
                         <button id="paintMode" class="tool-button active">Paint Mode</button>
                         
                         <div class="checkbox-container" style="margin-top: 10px;">
-                            <input type="checkbox" id="showOutlines">
-                            <label for="showOutlines" class="checkbox-label">Show outline overlay</label>
+                            <input type="checkbox" id="showWallIndicators" checked>
+                            <label for="showWallIndicators" class="checkbox-label">Show wall indicators</label>
                         </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Brush Settings</h3>
+                        <label for="brushSize">Brush Size:</label>
+                        <input type="range" id="brushSize" min="1" max="5" value="1" step="1">
+                        <div class="info">Size: <span id="brushSizeValue">1</span>x<span id="brushSizeValue2">1</span></div>
                     </div>
                     
                     <div class="control-group">
@@ -296,11 +303,6 @@
                         </div>
                         
                         <div class="checkbox-container">
-                            <input type="checkbox" id="showOutlines" checked>
-                            <label for="showOutlines" class="checkbox-label">Show outline overlay</label>
-                        </div>
-                        
-                        <div class="checkbox-container">
                             <input type="checkbox" id="showCenterGuides" checked>
                             <label for="showCenterGuides" class="checkbox-label">Show center grid lines</label>
                         </div>
@@ -324,6 +326,18 @@
                         <label for="centerGuideWeight">Center guide weight:</label>
                         <input type="range" id="centerGuideWeight" min="1" max="15" value="5" step="1">
                         <div class="info">Weight: <span id="centerGuideWeightValue">5</span>px</div>
+                        
+                        <div class="color-input-group">
+                            <div class="color-swatch" id="checkerColor1Swatch" style="background-color: #d0d0d0;"></div>
+                            <label for="checkerColor1">Checker pattern color 1</label>
+                            <input type="color" id="checkerColor1" value="#d0d0d0" class="hidden-color-input">
+                        </div>
+                        
+                        <div class="color-input-group">
+                            <div class="color-swatch" id="checkerColor2Swatch" style="background-color: #e6f3ff;"></div>
+                            <label for="checkerColor2">Checker pattern color 2</label>
+                            <input type="color" id="checkerColor2" value="#e6f3ff" class="hidden-color-input">
+                        </div>
                         
                         <button id="resetSettings" class="reset-button">Reset to Defaults</button>
                     </div>

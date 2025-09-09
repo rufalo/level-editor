@@ -6,7 +6,7 @@ export class SettingsManager {
         this.defaultSettings = {
             // Visual settings
             showBorders: true,
-            showOutlines: true,
+            showWallIndicators: true,
             showCenterGuides: true,
             borderColor: '#000000',
             borderWeight: 3,
@@ -38,7 +38,11 @@ export class SettingsManager {
             // Mode settings
             currentMode: 'paint',
             brushSize: 1,
-            selectedColor: '#ff0000'
+            selectedColor: '#ff0000',
+            
+            // Checker pattern settings
+            checkerColor1: '#d0d0d0',
+            checkerColor2: '#e6f3ff'
         };
         
         this.settings = { ...this.defaultSettings };

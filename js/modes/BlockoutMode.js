@@ -24,8 +24,13 @@ export class BlockoutMode {
         this.dragStartCell = null;
         this.dragOffset = { x: 0, y: 0 };
         
-        // Outline system
-        this.outlineOverlay = new Set();
+        // Drawing state
+        this.isDrawing = false;
+        this.lastDrawnTile = null;
+        this.isShiftPressed = false;
+        
+        // Wall indicator system
+        this.wallIndicators = new Set();
         
         // Current mode
         this.currentMode = 'paint';
@@ -49,58 +54,139 @@ export class BlockoutMode {
     }
     
     /**
-     * Setup event listeners
+     * Setup event listeners - now handled by main LevelEditor
      */
     setupEventListeners() {
-        this.canvas.addEventListener('cellMouseDown', (e) => this.handleCellMouseDown(e.detail));
-        this.canvas.addEventListener('cellMouseMove', (e) => this.handleCellMouseMove(e.detail));
-        this.canvas.addEventListener('cellMouseUp', (e) => this.handleCellMouseUp(e.detail));
-        this.canvas.addEventListener('keyDown', (e) => this.handleKeyDown(e.detail));
+        // Events are now handled directly by LevelEditor and delegated here
     }
     
     /**
-     * Handle cell mouse down
+     * Handle mouse down
      */
-    handleCellMouseDown(detail) {
+    handleMouseDown(detail) {
         const { tileX, tileY, cellX, cellY, button, ctrlKey, shiftKey } = detail;
         
-        if (button === 1 || (button === 0 && ctrlKey)) {
-            // Start panning
-            this.viewportManager.startPan(this.eventHandler.lastMouseX, this.eventHandler.lastMouseY);
+        if (button === 1) {
+            // Start panning (middle-click)
+            this.viewportManager.startPan(detail.mouseX, detail.mouseY);
             return;
         }
         
-        if (button === 0) {
-            if (this.currentMode === 'paint') {
-                this.handlePaintMode(tileX, tileY, cellX, cellY, shiftKey);
-            } else if (this.currentMode === 'selectCell') {
-                this.handleSelectMode(cellX, cellY, shiftKey);
-            }
+        if (this.currentMode === 'selectCell') {
+            this.handleSelectMode(cellX, cellY, shiftKey);
+            return;
+        }
+        
+        if (this.currentMode === 'paint') {
+            // Start drawing
+            this.isDrawing = true;
+            this.lastDrawnTile = null;
+            this.drawingMode = button === 0 ? 'draw' : 'erase';
+            this.isShiftPressed = shiftKey;
+            this.handleTileInteraction(tileX, tileY, cellX, cellY, shiftKey, button);
         }
     }
     
     /**
-     * Handle paint mode
+     * Handle tile interaction (painting)
      */
-    handlePaintMode(tileX, tileY, cellX, cellY, shiftKey) {
+    handleTileInteraction(tileX, tileY, cellX, cellY, shiftKey, button) {
         if (!this.gridSystem.isValidTile(tileX, tileY)) return;
         
-        const tileValue = shiftKey ? 1 : 0; // Shift = connection, normal = blockout
+        // Prevent drawing on the same tile multiple times during drag
+        if (this.lastDrawnTile && 
+            this.lastDrawnTile.x === tileX && 
+            this.lastDrawnTile.y === tileY) {
+            return;
+        }
         
-        // Apply brush size
-        for (let dy = 0; dy < this.brushSize; dy++) {
-            for (let dx = 0; dx < this.brushSize; dx++) {
-                const brushX = tileX + dx;
-                const brushY = tileY + dy;
+        this.lastDrawnTile = { x: tileX, y: tileY };
+        
+        // Apply brush to area around clicked tile
+        const affectedCells = new Set();
+        
+        // Get list of tiles to affect based on brush pattern
+        const tilesToAffect = this.getBrushTiles(tileX, tileY);
+        
+        for (const {x: targetX, y: targetY} of tilesToAffect) {
+            // Check bounds
+            if (targetX >= 0 && targetX < this.gridSystem.totalWidth && targetY >= 0 && targetY < this.gridSystem.totalHeight) {
+                // Handle different drawing modes
+                if (this.currentMode === 'paint') {
+                    // Paint mode: direct tile painting with shift eraser
+                    if (shiftKey) {
+                        // Shift + paint = filled/black tiles
+                        this.tileData[targetY][targetX] = 1;
+                    } else if (this.drawingMode === 'draw') {
+                        this.tileData[targetY][targetX] = 0; // Left click = empty/white tiles
+                    } else if (this.drawingMode === 'erase') {
+                        this.tileData[targetY][targetX] = -1; // Right click = eraser mode (transparent)
+                    }
+                }
                 
-                if (this.gridSystem.isValidTile(brushX, brushY)) {
-                    this.tileData[brushY][brushX] = tileValue;
+                // Track affected cells for activity updates
+                const cellX = Math.floor(targetX / this.gridSystem.cellWidth);
+                const cellY = Math.floor(targetY / this.gridSystem.cellHeight);
+                affectedCells.add(this.gridSystem.getCellKey(cellX, cellY));
+            }
+        }
+        
+        // Update cell activity for affected cells
+        affectedCells.forEach(cellKey => {
+            const { x, y } = this.gridSystem.parseCellKey(cellKey);
+            this.updateCellActivity(x, y);
+        });
+        
+        // Update wall indicators after tile interaction (smart rendering)
+        this.applyWallIndicators();
+    }
+    
+    /**
+     * Get brush tiles for painting - using original brush patterns
+     */
+    getBrushTiles(centerX, centerY) {
+        const tiles = [];
+        
+        if (this.brushSize === 1) {
+            // Size 1: Just center tile
+            tiles.push({x: centerX, y: centerY});
+        } else if (this.brushSize === 2) {
+            // Size 2: Plus pattern (center + 4 directions)
+            tiles.push({x: centerX, y: centerY});         // center
+            tiles.push({x: centerX - 1, y: centerY});     // left
+            tiles.push({x: centerX + 1, y: centerY});     // right
+            tiles.push({x: centerX, y: centerY - 1});     // up
+            tiles.push({x: centerX, y: centerY + 1});     // down
+        } else if (this.brushSize === 3) {
+            // Size 3: Full 3x3 square
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    tiles.push({x: centerX + dx, y: centerY + dy});
+                }
+            }
+        } else if (this.brushSize === 4) {
+            // Size 4: 3x3 center + extensions (13 tiles total)
+            // First add 3x3 center
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    tiles.push({x: centerX + dx, y: centerY + dy});
+                }
+            }
+            // Add extensions in 4 directions
+            tiles.push({x: centerX - 2, y: centerY});     // far left
+            tiles.push({x: centerX + 2, y: centerY});     // far right
+            tiles.push({x: centerX, y: centerY - 2});     // far up
+            tiles.push({x: centerX, y: centerY + 2});     // far down
+        } else if (this.brushSize === 5) {
+            // Size 5: Full 5x5 square
+            for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    tiles.push({x: centerX + dx, y: centerY + dy});
                 }
             }
         }
         
-        this.updateCellActivity(cellX, cellY);
-        this.render();
+        return tiles;
     }
     
     /**
@@ -111,26 +197,43 @@ export class BlockoutMode {
         
         if (shiftKey) {
             // Add to selection
-            const cellKey = this.gridSystem.getCellKey(cellX, cellY);
             if (!this.selectedCells.some(cell => cell.x === cellX && cell.y === cellY)) {
                 this.selectedCells.push({ x: cellX, y: cellY });
             }
         } else {
-            // Start new selection or drag
-            this.selectedCells = [{ x: cellX, y: cellY }];
-            this.isDraggingCell = true;
-            this.dragStartCell = { x: cellX, y: cellY };
+            // Check if clicking on already selected cell
+            const isSelected = this.selectedCells.some(cell => cell.x === cellX && cell.y === cellY);
+            
+            if (isSelected) {
+                // Start dragging if clicking on selected cell
+                this.isDraggingCell = true;
+                this.dragStartCell = { x: cellX, y: cellY };
+            } else {
+                // Start new selection
+                this.selectedCells = [{ x: cellX, y: cellY }];
+                this.isDraggingCell = false;
+                this.dragStartCell = null;
+            }
         }
         
         this.render();
     }
     
     /**
-     * Handle cell mouse move
+     * Handle mouse move
      */
-    handleCellMouseMove(detail) {
+    handleMouseMove(detail) {
+        const { tileX, tileY, cellX, cellY, mouseX, mouseY } = detail;
+        
+        // Handle panning
+        if (this.viewportManager.isPanning) {
+            this.viewportManager.updatePan(mouseX, mouseY);
+            this.render();
+            return;
+        }
+        
+        // Handle cell dragging
         if (this.isDraggingCell && this.dragStartCell) {
-            const { cellX, cellY } = detail;
             const deltaX = cellX - this.dragStartCell.x;
             const deltaY = cellY - this.dragStartCell.y;
             
@@ -138,15 +241,30 @@ export class BlockoutMode {
                 this.shiftSelectedCells(deltaX, deltaY);
                 this.dragStartCell = { x: cellX, y: cellY };
             }
+            return;
+        }
+        
+        // Handle continuous drawing
+        if (this.isDrawing && this.currentMode === 'paint') {
+            // Pass the original shift key state for continuous drawing
+            this.handleTileInteraction(tileX, tileY, cellX, cellY, this.isShiftPressed, this.drawingMode === 'draw' ? 0 : 2);
         }
     }
     
     /**
-     * Handle cell mouse up
+     * Handle mouse up
      */
-    handleCellMouseUp(detail) {
+    handleMouseUp(detail) {
         this.isDraggingCell = false;
         this.dragStartCell = null;
+        this.viewportManager.stopPan();
+        
+        // Stop drawing
+        if (this.isDrawing) {
+            this.isDrawing = false;
+            this.lastDrawnTile = null;
+            this.applyWallIndicators();
+        }
     }
     
     /**
@@ -252,10 +370,10 @@ export class BlockoutMode {
         
         // Update cell activity
         this.selectedCells.forEach(cell => {
-            this.updateCellActivity(cell.x, cellY);
+            this.updateCellActivity(cell.x, cell.y);
         });
         
-        this.applyAutoOutline();
+        this.applyWallIndicators();
         this.render();
     }
     
@@ -277,30 +395,45 @@ export class BlockoutMode {
             this.updateCellActivity(cell.x, cell.y);
         });
         
-        this.applyAutoOutline();
+        this.applyWallIndicators();
         this.render();
     }
     
     /**
-     * Apply auto outline
+     * Apply wall indicators - show gray wall suggestions around white/open tiles
      */
-    applyAutoOutline() {
-        this.outlineOverlay.clear();
+    applyWallIndicators() {
+        // Clear existing wall indicators
+        this.wallIndicators.clear();
         
-        this.activeCells.forEach(cellKey => {
-            const { x, y } = this.gridSystem.parseCellKey(cellKey);
-            const neighbors = this.getCellNeighbors(x, y);
-            
-            // Check if cell has any empty neighbors
-            const hasEmptyNeighbor = neighbors.some(neighbor => {
-                const neighborKey = this.gridSystem.getCellKey(neighbor.x, neighbor.y);
-                return !this.activeCells.has(neighborKey);
-            });
-            
-            if (hasEmptyNeighbor) {
-                this.outlineOverlay.add(cellKey);
+        // Scan entire grid for white/open tiles (value 0)
+        for (let y = 0; y < this.gridSystem.totalHeight; y++) {
+            for (let x = 0; x < this.gridSystem.totalWidth; x++) {
+                if (this.tileData[y][x] === 0) { // Found white/open tile
+                    // Check 4-directional neighbors for transparent tiles
+                    const neighbors = [
+                        [x, y - 1], // up
+                        [x, y + 1], // down
+                        [x - 1, y], // left
+                        [x + 1, y]  // right
+                    ];
+                    
+                    for (const [nx, ny] of neighbors) {
+                        if (nx >= 0 && nx < this.gridSystem.totalWidth && ny >= 0 && ny < this.gridSystem.totalHeight) {
+                            if (this.tileData[ny][nx] === -1) { // Found transparent neighbor
+                                // Add this transparent tile as a wall indicator
+                                this.wallIndicators.add(`${nx},${ny}`);
+                            }
+                        }
+                    }
+                }
             }
-        });
+        }
+        
+        // Only render if there are wall indicator changes
+        if (this.wallIndicators.size > 0) {
+            this.render();
+        }
     }
     
     /**
@@ -330,7 +463,7 @@ export class BlockoutMode {
     clearGrid() {
         this.initializeTileData();
         this.activeCells.clear();
-        this.outlineOverlay.clear();
+        this.wallIndicators.clear();
         this.render();
     }
     
@@ -351,6 +484,12 @@ export class BlockoutMode {
         this.canvasRenderer.drawGrid();
         this.canvasRenderer.drawTiles(this.tileData);
         
+        // Draw wall indicators BEFORE structural grid elements
+        this.canvasRenderer.drawWallIndicators(this.wallIndicators);
+        
+        // Draw tile grid lines UNDER the structural grid elements
+        this.canvasRenderer.drawTileGridLines();
+        
         if (this.settings.get('showBorders')) {
             this.canvasRenderer.drawCellBorders();
         }
@@ -361,10 +500,6 @@ export class BlockoutMode {
         
         if (this.currentMode === 'selectCell' && this.selectedCells.length > 0) {
             this.canvasRenderer.drawCellSelection(this.selectedCells);
-        }
-        
-        if (this.settings.get('showOutlines')) {
-            this.canvasRenderer.drawOutlineOverlay(this.outlineOverlay);
         }
     }
     
@@ -395,7 +530,7 @@ export class BlockoutMode {
             const levelData = this.exportSystem.importLevelFromJSON(jsonString);
             this.tileData = levelData.tileData;
             this.activeCells = levelData.activeCells;
-            this.applyAutoOutline();
+            this.applyWallIndicators();
             this.render();
             return true;
         } catch (error) {

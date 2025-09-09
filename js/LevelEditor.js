@@ -17,6 +17,10 @@ export class LevelEditor {
         
         // Initialize core modules
         this.settings = new SettingsManager();
+        
+        // Set canvas size
+        this.canvas.width = this.settings.get('canvasWidth');
+        this.canvas.height = this.settings.get('canvasHeight');
         this.gridSystem = new GridSystem(this.settings);
         this.viewportManager = new ViewportManager(this.canvas, this.settings, this.gridSystem);
         this.canvasRenderer = new CanvasRenderer(this.canvas, this.settings, this.gridSystem, this.viewportManager);
@@ -39,6 +43,9 @@ export class LevelEditor {
         
         this.currentMode = 'blockout';
         
+        // Center the grid
+        this.viewportManager.calculateCenteredViewport();
+        
         this.setupUI();
         this.render();
     }
@@ -50,6 +57,25 @@ export class LevelEditor {
         // Mode buttons
         document.getElementById('paintMode')?.addEventListener('click', () => this.setMode('paint'));
         document.getElementById('selectCellMode')?.addEventListener('click', () => this.setMode('selectCell'));
+        
+        // Canvas mouse events - direct handling
+        this.canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 1) e.preventDefault(); // Prevent default middle mouse behavior
+            this.handleMouseDown(e);
+        });
+        this.canvas.addEventListener('mousemove', (e) => {
+            if (e.button === 1) e.preventDefault(); // Prevent default middle mouse behavior
+            this.handleMouseMove(e);
+        });
+        this.canvas.addEventListener('mouseup', (e) => {
+            if (e.button === 1) e.preventDefault(); // Prevent default middle mouse behavior
+            this.handleMouseUp(e);
+        });
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Keyboard events
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         
         // Visual settings
         this.setupVisualSettings();
@@ -78,12 +104,13 @@ export class LevelEditor {
             });
         }
         
-        // Outlines
-        const showOutlines = document.getElementById('showOutlines');
-        if (showOutlines) {
-            showOutlines.checked = this.settings.get('showOutlines');
-            showOutlines.addEventListener('change', (e) => {
-                this.settings.set('showOutlines', e.target.checked);
+        
+        // Wall indicators
+        const showWallIndicators = document.getElementById('showWallIndicators');
+        if (showWallIndicators) {
+            showWallIndicators.checked = this.settings.get('showWallIndicators');
+            showWallIndicators.addEventListener('change', (e) => {
+                this.settings.set('showWallIndicators', e.target.checked);
                 this.render();
             });
         }
@@ -139,6 +166,41 @@ export class LevelEditor {
                 this.settings.set('centerGuideWeight', parseInt(e.target.value));
                 document.getElementById('centerGuideWeightValue').textContent = e.target.value;
                 this.render();
+            });
+        }
+        
+        // Checker color 1
+        const checkerColor1 = document.getElementById('checkerColor1');
+        if (checkerColor1) {
+            checkerColor1.value = this.settings.get('checkerColor1');
+            checkerColor1.addEventListener('change', (e) => {
+                this.settings.set('checkerColor1', e.target.value);
+                this.updateColorSwatches();
+                this.render();
+            });
+        }
+        
+        // Checker color 2
+        const checkerColor2 = document.getElementById('checkerColor2');
+        if (checkerColor2) {
+            checkerColor2.value = this.settings.get('checkerColor2');
+            checkerColor2.addEventListener('change', (e) => {
+                this.settings.set('checkerColor2', e.target.value);
+                this.updateColorSwatches();
+                this.render();
+            });
+        }
+        
+        // Brush size
+        const brushSize = document.getElementById('brushSize');
+        if (brushSize) {
+            brushSize.value = this.settings.get('brushSize');
+            brushSize.addEventListener('input', (e) => {
+                const size = parseInt(e.target.value);
+                this.settings.set('brushSize', size);
+                document.getElementById('brushSizeValue').textContent = size;
+                document.getElementById('brushSizeValue2').textContent = size;
+                this.blockoutMode.brushSize = size;
             });
         }
         
@@ -209,7 +271,7 @@ export class LevelEditor {
                         const levelData = this.exportSystem.loadLevelFromStorage(levelName);
                         this.blockoutMode.tileData = levelData.tileData;
                         this.blockoutMode.activeCells = levelData.activeCells;
-                        this.blockoutMode.applyAutoOutline();
+                        this.blockoutMode.applyWallIndicators();
                         this.render();
                         this.showTemporaryMessage(`Level "${levelName}" loaded`);
                     } catch (error) {
@@ -251,6 +313,16 @@ export class LevelEditor {
         if (centerGuideColorSwatch) {
             centerGuideColorSwatch.style.backgroundColor = this.settings.get('centerGuideColor');
         }
+        
+        const checkerColor1Swatch = document.getElementById('checkerColor1Swatch');
+        if (checkerColor1Swatch) {
+            checkerColor1Swatch.style.backgroundColor = this.settings.get('checkerColor1');
+        }
+        
+        const checkerColor2Swatch = document.getElementById('checkerColor2Swatch');
+        if (checkerColor2Swatch) {
+            checkerColor2Swatch.style.backgroundColor = this.settings.get('checkerColor2');
+        }
     }
     
     /**
@@ -260,6 +332,173 @@ export class LevelEditor {
         if (mode === 'paint' || mode === 'selectCell') {
             this.blockoutMode.setMode(mode);
             this.currentMode = 'blockout';
+        }
+    }
+    
+    /**
+     * Handle mouse down events
+     */
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Convert to tile coordinates
+        const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
+        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
+        
+        // Delegate to blockout mode
+        this.blockoutMode.handleMouseDown({
+            tileX: tilePos.x,
+            tileY: tilePos.y,
+            cellX: cellPos.x,
+            cellY: cellPos.y,
+            button: e.button,
+            ctrlKey: e.ctrlKey,
+            shiftKey: e.shiftKey,
+            mouseX: mouseX,
+            mouseY: mouseY
+        });
+    }
+    
+    /**
+     * Handle mouse move events
+     */
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Handle panning
+        this.viewportManager.updatePan(mouseX, mouseY);
+        
+        // Convert to tile coordinates
+        const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
+        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
+        
+        // Delegate to blockout mode
+        this.blockoutMode.handleMouseMove({
+            tileX: tilePos.x,
+            tileY: tilePos.y,
+            cellX: cellPos.x,
+            cellY: cellPos.y,
+            mouseX: mouseX,
+            mouseY: mouseY
+        });
+    }
+    
+    /**
+     * Handle mouse up events
+     */
+    handleMouseUp(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Convert to tile coordinates
+        const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
+        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
+        
+        // Delegate to blockout mode
+        this.blockoutMode.handleMouseUp({
+            tileX: tilePos.x,
+            tileY: tilePos.y,
+            cellX: cellPos.x,
+            cellY: cellPos.y,
+            button: e.button
+        });
+    }
+    
+    /**
+     * Handle wheel events for zooming and brush size
+     */
+    handleWheel(e) {
+        e.preventDefault();
+        
+        // Check if Ctrl is held for brush size adjustment
+        if (e.ctrlKey || e.metaKey) {
+            // Brush size adjustment - NO ZOOM
+            const oldBrushSize = this.blockoutMode.brushSize;
+            
+            if (e.deltaY < 0) {
+                // Scroll up - increase brush size
+                this.blockoutMode.brushSize = Math.min(5, this.blockoutMode.brushSize + 1);
+            } else {
+                // Scroll down - decrease brush size
+                this.blockoutMode.brushSize = Math.max(1, this.blockoutMode.brushSize - 1);
+            }
+            
+            if (this.blockoutMode.brushSize !== oldBrushSize) {
+                // Update UI slider
+                const brushSizeInput = document.getElementById('brushSize');
+                if (brushSizeInput) {
+                    brushSizeInput.value = this.blockoutMode.brushSize;
+                    document.getElementById('brushSizeValue').textContent = this.blockoutMode.brushSize;
+                    document.getElementById('brushSizeValue2').textContent = this.blockoutMode.brushSize;
+                }
+                
+                // Update settings
+                this.settings.set('brushSize', this.blockoutMode.brushSize);
+            }
+            
+            // Only render, don't zoom
+            this.render();
+        } else {
+            // Normal zoom - only when Ctrl is NOT held
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = this.viewportManager.getZoom() * delta;
+            this.viewportManager.setZoom(newZoom);
+            this.render();
+        }
+    }
+    
+    /**
+     * Handle key down events
+     */
+    handleKeyDown(e) {
+        // Handle keyboard panning
+        const panSpeed = 50; // pixels per keypress
+        
+        switch(e.key) {
+            case 'ArrowLeft':
+            case 'a':
+            case 'A':
+                e.preventDefault();
+                this.viewportManager.panViewport(-panSpeed / this.viewportManager.getZoom(), 0);
+                this.render();
+                break;
+            case 'ArrowRight':
+            case 'd':
+            case 'D':
+                e.preventDefault();
+                this.viewportManager.panViewport(panSpeed / this.viewportManager.getZoom(), 0);
+                this.render();
+                break;
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                e.preventDefault();
+                this.viewportManager.panViewport(0, -panSpeed / this.viewportManager.getZoom());
+                this.render();
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                e.preventDefault();
+                this.viewportManager.panViewport(0, panSpeed / this.viewportManager.getZoom());
+                this.render();
+                break;
+            default:
+                // Delegate other keys to blockout mode
+                this.blockoutMode.handleKeyDown({
+                    key: e.key,
+                    code: e.code,
+                    ctrlKey: e.ctrlKey,
+                    shiftKey: e.shiftKey,
+                    altKey: e.altKey,
+                    preventDefault: () => e.preventDefault()
+                });
+                break;
         }
     }
     
@@ -301,7 +540,7 @@ export class LevelEditor {
         if (levelData.settings) {
             this.settings.update(levelData.settings);
         }
-        this.blockoutMode.applyAutoOutline();
+        this.blockoutMode.applyWallIndicators();
         this.render();
     }
 }

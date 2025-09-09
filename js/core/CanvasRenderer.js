@@ -28,7 +28,21 @@ export class CanvasRenderer {
         const bounds = this.gridSystem.getGridBounds();
         const visibleBounds = this.viewportManager.getVisibleTileBounds();
         
-        // Draw grid lines
+        // Draw checker pattern for transparent tiles
+        this.drawCheckerPattern(visibleBounds);
+        
+        this.viewportManager.restoreTransform();
+    }
+    
+    /**
+     * Draw tile grid lines
+     */
+    drawTileGridLines() {
+        this.viewportManager.applyTransform();
+        
+        const visibleBounds = this.viewportManager.getVisibleTileBounds();
+        
+        // Draw tile grid lines
         this.ctx.strokeStyle = '#cccccc';
         this.ctx.lineWidth = 1 / this.viewportManager.getZoom();
         this.ctx.setLineDash([]);
@@ -52,6 +66,24 @@ export class CanvasRenderer {
         }
         
         this.viewportManager.restoreTransform();
+    }
+    
+    /**
+     * Draw checker pattern for transparent tiles
+     */
+    drawCheckerPattern(visibleBounds) {
+        const checkerColor1 = this.settings.get('checkerColor1');
+        const checkerColor2 = this.settings.get('checkerColor2');
+        
+        for (let y = visibleBounds.startY; y < visibleBounds.endY; y++) {
+            for (let x = visibleBounds.startX; x < visibleBounds.endX; x++) {
+                const isEven = (x + y) % 2 === 0;
+                const color = isEven ? checkerColor1 : checkerColor2;
+                
+                this.ctx.fillStyle = color;
+                this.ctx.fillRect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize);
+            }
+        }
     }
     
     /**
@@ -157,12 +189,12 @@ export class CanvasRenderer {
         const y = tileY * this.tileSize;
         
         // Set color based on tile value
-        let color = '#ff0000'; // Default red
+        let color = '#ffffff'; // Default white
         switch (tileValue) {
-            case 0: color = '#ff0000'; break; // Blockout
-            case 1: color = '#00ff00'; break; // Connection
-            case 2: color = '#0000ff'; break; // Special
-            default: color = '#ff0000'; break;
+            case 0: color = '#ffffff'; break; // Empty/white tiles (carved spaces)
+            case 1: color = '#000000'; break; // Filled/black tiles (solid areas)
+            case 2: color = '#0000ff'; break; // Special (blue)
+            default: color = '#ffffff'; break;
         }
         
         this.ctx.fillStyle = color;
@@ -194,27 +226,24 @@ export class CanvasRenderer {
     }
     
     /**
-     * Draw outline overlay
+     * Draw wall indicators - gray wall suggestions around white tiles
      */
-    drawOutlineOverlay(outlineOverlay) {
-        if (!this.settings.get('showOutlines')) return;
+    drawWallIndicators(wallIndicators) {
+        if (!this.settings.get('showWallIndicators')) return;
         
         this.viewportManager.applyTransform();
         
-        const outlineColor = this.settings.get('outlineColor');
-        const outlineWeight = this.settings.get('outlineWeight') / this.viewportManager.getZoom();
+        // Draw gray fill for wall indicators
+        this.ctx.fillStyle = '#808080'; // Gray color for wall indicators
+        this.ctx.fillRect(0, 0, 0, 0); // Reset fill
         
-        this.ctx.strokeStyle = outlineColor;
-        this.ctx.lineWidth = outlineWeight;
-        this.ctx.setLineDash([]);
-        
-        outlineOverlay.forEach(cellKey => {
-            const { x, y } = this.gridSystem.parseCellKey(cellKey);
-            const tile = this.gridSystem.getTileFromCell(x, y);
-            const cellWidth = this.gridSystem.cellWidth * this.tileSize;
-            const cellHeight = this.gridSystem.cellHeight * this.tileSize;
+        wallIndicators.forEach(tileKey => {
+            const [x, y] = tileKey.split(',').map(Number);
+            const screenX = x * this.tileSize;
+            const screenY = y * this.tileSize;
             
-            this.ctx.strokeRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+            // Fill with gray to show wall indicator
+            this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
         });
         
         this.viewportManager.restoreTransform();

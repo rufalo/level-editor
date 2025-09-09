@@ -90,6 +90,32 @@ export class ViewportManager {
     }
     
     /**
+     * Pan viewport by delta amount
+     */
+    panViewport(deltaX, deltaY) {
+        this.panX += deltaX;
+        this.panY += deltaY;
+        this.constrainViewport();
+    }
+    
+    /**
+     * Constrain viewport to grid bounds
+     */
+    constrainViewport() {
+        const gridWidth = this.gridSystem.getGridWidth();
+        const gridHeight = this.gridSystem.getGridHeight();
+        const cellWidth = this.gridSystem.cellWidth;
+        const cellHeight = this.gridSystem.cellHeight;
+        const tileSize = this.gridSystem.tileSize;
+        
+        const maxPanX = (gridWidth * cellWidth * tileSize) - this.canvas.width / this.zoom;
+        const maxPanY = (gridHeight * cellHeight * tileSize) - this.canvas.height / this.zoom;
+        
+        this.panX = Math.max(0, Math.min(maxPanX, this.panX));
+        this.panY = Math.max(0, Math.min(maxPanY, this.panY));
+    }
+    
+    /**
      * Convert screen coordinates to world coordinates
      */
     screenToWorld(screenX, screenY) {
@@ -181,6 +207,19 @@ export class ViewportManager {
     }
     
     /**
+     * Calculate centered viewport position
+     */
+    calculateCenteredViewport() {
+        const viewportX = Math.floor((this.gridSystem.totalGridCols - this.gridSystem.viewportCols) / 2);
+        const viewportY = Math.floor((this.gridSystem.totalGridRows - this.gridSystem.viewportRows) / 2);
+        
+        this.settings.set('viewportX', viewportX);
+        this.settings.set('viewportY', viewportY);
+        this.viewportX = viewportX;
+        this.viewportY = viewportY;
+    }
+    
+    /**
      * Reset viewport to default position
      */
     resetViewport() {
@@ -188,8 +227,6 @@ export class ViewportManager {
         this.panY = 0;
         this.zoom = 1.0;
         this.settings.set('zoom', this.zoom);
-        this.gridSystem.calculateCenteredViewport();
-        this.viewportX = this.settings.get('viewportX');
-        this.viewportY = this.settings.get('viewportY');
+        this.calculateCenteredViewport();
     }
 }

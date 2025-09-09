@@ -23,7 +23,7 @@ export class EventHandler {
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        // Wheel events handled by LevelEditor directly
         
         // Keyboard events
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -114,21 +114,6 @@ export class EventHandler {
         }));
     }
     
-    /**
-     * Handle wheel events for zooming
-     */
-    handleWheel(e) {
-        e.preventDefault();
-        
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const newZoom = this.viewportManager.getZoom() * delta;
-        this.viewportManager.setZoom(newZoom);
-        
-        // Emit custom event
-        this.canvas.dispatchEvent(new CustomEvent('zoomChanged', {
-            detail: { zoom: newZoom }
-        }));
-    }
     
     /**
      * Handle key down events
@@ -186,7 +171,7 @@ export class EventHandler {
         this.canvas.removeEventListener('mousedown', this.handleMouseDown);
         this.canvas.removeEventListener('mousemove', this.handleMouseMove);
         this.canvas.removeEventListener('mouseup', this.handleMouseUp);
-        this.canvas.removeEventListener('wheel', this.handleWheel);
+        // Wheel events handled by LevelEditor directly
         document.removeEventListener('keydown', this.handleKeyDown);
     }
 }
