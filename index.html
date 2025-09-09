@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Level Editor - Modular Architecture</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .editor-panel {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        
+        .canvas-container {
+            position: relative;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        #tileCanvas {
+            border: 1px solid #ccc;
+            cursor: crosshair;
+        }
+        
+        .controls {
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 250px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .tab-button {
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #ccc;
+            padding: 10px 20px;
+            margin: 0 5px;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        .tab-button.active {
+            background: #2196F3;
+            color: white;
+            border-color: #1976D2;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        input, select, button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .tool-button {
+            background: #2196F3;
+        }
+        
+        .tool-button:hover {
+            background: #1976D2;
+        }
+        
+        .tool-button.active {
+            background: #FF9800;
+        }
+        
+        .tool-button.active:hover {
+            background: #F57C00;
+        }
+        
+        .action-button {
+            background: #9C27B0;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        
+        .action-button:hover {
+            background: #7B1FA2;
+        }
+        
+        .clear-button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .clear-button:hover {
+            background: #ff5252;
+        }
+        
+        .reset-button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .reset-button:hover {
+            background: #ff5252;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+            margin-bottom: 0;
+        }
+        
+        .checkbox-label {
+            margin: 0;
+            font-size: 14px;
+        }
+        
+        .color-input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .color-swatch {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .hidden-color-input {
+            display: none;
+        }
+        
+        .info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .selected-info {
+            background: #e3f2fd;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .editor-panel {
+                flex-direction: column;
+            }
+            
+            .controls {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Level Editor - Modular Architecture</h1>
+            <p>Professional hierarchical level editor with modular design</p>
+        </div>
+        
+        <div class="editor-panel">
+            <div class="canvas-container">
+                <canvas id="tileCanvas" width="800" height="600"></canvas>
+            </div>
+            
+            <div class="controls">
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="showTab('editor')">Editor</button>
+                    <button class="tab-button" onclick="showTab('settings')">Settings</button>
+                </div>
+                
+                <!-- Editor Tab Content -->
+                <div id="editorContent" class="tab-content active">
+                    <div class="control-group">
+                        <h3>Drawing Modes</h3>
+                        <button id="paintMode" class="tool-button active">Paint Mode</button>
+                        
+                        <div class="checkbox-container" style="margin-top: 10px;">
+                            <input type="checkbox" id="showOutlines">
+                            <label for="showOutlines" class="checkbox-label">Show outline overlay</label>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Cell Mode</h3>
+                        <button id="selectCellMode" class="tool-button">Select Cell Mode</button>
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="swapMode" checked>
+                            <label for="swapMode" class="checkbox-label">Swap cells when dragging</label>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Selected Cell Actions</h3>
+                        <div class="selected-info">Cell (<span id="selectedCellX">0</span>, <span id="selectedCellY">0</span>) selected</div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Grid Actions</h3>
+                        <button id="clearAll" class="clear-button">Clear All</button>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Export & Save</h3>
+                        <button id="exportJSON" class="action-button">Export JSON</button>
+                        <button id="saveToStorage" class="action-button">Save to Storage</button>
+                        <button id="loadFromStorage" class="action-button">Load from Storage</button>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab Content -->
+                <div id="settingsContent" class="tab-content">
+                    <div class="control-group">
+                        <h3>Visual Settings</h3>
+                        
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="showBorders" checked>
+                            <label for="showBorders" class="checkbox-label">Show cell borders</label>
+                        </div>
+                        
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="showOutlines" checked>
+                            <label for="showOutlines" class="checkbox-label">Show outline overlay</label>
+                        </div>
+                        
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="showCenterGuides" checked>
+                            <label for="showCenterGuides" class="checkbox-label">Show center grid lines</label>
+                        </div>
+                        
+                        <div class="color-input-group">
+                            <div class="color-swatch" id="borderColorSwatch" style="background-color: #000000;"></div>
+                            <label for="borderColor">Cell border color</label>
+                            <input type="color" id="borderColor" value="#000000" class="hidden-color-input">
+                        </div>
+                        
+                        <label for="borderWeight">Cell border weight:</label>
+                        <input type="range" id="borderWeight" min="1" max="10" value="3" step="1">
+                        <div class="info">Weight: <span id="borderWeightValue">3</span>px</div>
+                        
+                        <div class="color-input-group">
+                            <div class="color-swatch" id="centerGuideColorSwatch" style="background-color: #00008b;"></div>
+                            <label for="centerGuideColor">Center guide color</label>
+                            <input type="color" id="centerGuideColor" value="#00008b" class="hidden-color-input">
+                        </div>
+                        
+                        <label for="centerGuideWeight">Center guide weight:</label>
+                        <input type="range" id="centerGuideWeight" min="1" max="15" value="5" step="1">
+                        <div class="info">Weight: <span id="centerGuideWeightValue">5</span>px</div>
+                        
+                        <button id="resetSettings" class="reset-button">Reset to Defaults</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + 'Content').classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+        
+        // Setup color swatch click handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            const colorSwatches = document.querySelectorAll('.color-swatch');
+            colorSwatches.forEach(swatch => {
+                swatch.addEventListener('click', () => {
+                    const input = swatch.nextElementSibling.nextElementSibling;
+                    input.click();
+                });
+            });
+        });
+    </script>
+    
+    <script type="module" src="js/LevelEditor.js"></script>
+</body>
+</html>

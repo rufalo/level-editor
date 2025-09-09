@@ -300,6 +300,33 @@
         .reset-button:hover {
             background: #ff5252;
         }
+        
+        .action-button {
+            background: #9C27B0;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        
+        .action-button:hover {
+            background: #7B1FA2;
+        }
+        
+        .clear-button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .clear-button:hover {
+            background: #ff5252;
+        }
 
         @media (max-width: 768px) {
             .editor-panel {
@@ -396,7 +423,14 @@
                     
                     <div class="control-group">
                         <h3>Grid Actions</h3>
-                        <button id="clearGrid" class="clear-button">Clear All</button>
+                        <button id="clearAll" class="clear-button">Clear All</button>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Export & Save</h3>
+                        <button id="exportJSON" class="action-button">Export JSON</button>
+                        <button id="saveToStorage" class="action-button">Save to Storage</button>
+                        <button id="loadFromStorage" class="action-button">Load from Storage</button>
                     </div>
                     
                 </div>
@@ -462,6 +496,6 @@
     </div>
 
 
-    <script src="js/level-editor.js"></script>
+    <script type="module" src="js/LevelEditor.js"></script>
 </body>
 </html>

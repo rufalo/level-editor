@@ -1,0 +1,27 @@
+{
+  "name": "level-editor",
+  "version": "1.0.0",
+  "description": "A professional hierarchical level editor for rapid level creation and modular world building.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rufalo/level-editor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rufalo/level-editor/issues"
+  },
+  "homepage": "https://github.com/rufalo/level-editor#readme",
+  "devDependencies": {
+    "vite": "^7.1.5"
+  }
+}

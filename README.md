@@ -2,6 +2,45 @@
 
 A professional hierarchical level editor for rapid level creation and modular world building.
 
+## Version 3.0 - Modular Architecture
+
+This version introduces a complete modular architecture with ES6 modules, Vite build system, and separated concerns for better maintainability and scalability.
+
+### **🏗️ Modular Structure**
+```
+js/
+├── core/                    # Core shared modules
+│   ├── SettingsManager.js   # Settings and persistence
+│   ├── GridSystem.js        # Grid calculations
+│   ├── ViewportManager.js   # Zoom, pan, viewport
+│   ├── CanvasRenderer.js    # Drawing operations
+│   └── EventHandler.js      # Mouse/keyboard events
+├── modes/                   # Application modes
+│   ├── BlockoutMode.js      # Current level editor
+│   └── LevelEditorMode.js   # Future detailed editor
+├── features/                # Feature modules
+│   ├── ExportSystem.js      # JSON export & web storage
+│   └── PatternLibrary.js    # Future pattern management
+└── utils/                   # Utility modules
+    ├── MathUtils.js         # Coordinate transformations
+    └── FileUtils.js         # File operations
+```
+
+### **🚀 Development Setup**
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
 ## 🎨 **Features**
 
 ### **Level Blockout Mode**
@@ -71,15 +110,40 @@ A professional hierarchical level editor for rapid level creation and modular wo
 - **Reset to Defaults** - One-click restoration of original settings
 - **Real-time Updates** - Changes apply immediately
 
+## 💾 **Export & Storage System**
+
+### **JSON Export**
+- **Download Level** - Export current level as JSON file
+- **Version Control** - JSON includes version and metadata
+- **Complete Data** - Exports tile data, active cells, and visual settings
+- **Import Support** - Load levels from JSON files
+
+### **Web Storage**
+- **Local Storage** - Save levels in browser storage
+- **Level Management** - List, save, and load multiple levels
+- **Persistent Settings** - Visual settings saved automatically
+- **Quick Access** - Fast save/load without file downloads
+
 ## 🚀 **Getting Started**
 
-1. **Open `level-editor.html`** in your browser
-2. **Use left-click** to carve empty spaces
-3. **Use right-click** to fill solid spaces
-4. **Hold Shift + left-click** to fill tiles
-5. **Adjust brush size** with the slider
-6. **Select cells** to move, swap, or clear them
-7. **Customize visuals** in the Visual Settings tab
+### **Development Mode**
+1. **Install dependencies**: `npm install`
+2. **Start dev server**: `npm run dev`
+3. **Open browser** to `http://localhost:3000`
+
+### **Production Build**
+1. **Build project**: `npm run build`
+2. **Preview build**: `npm run preview`
+3. **Deploy** the `dist/` folder
+
+### **Using the Editor**
+1. **Use left-click** to carve empty spaces
+2. **Use right-click** to fill solid spaces
+3. **Hold Shift + left-click** to fill tiles
+4. **Adjust brush size** with the slider
+5. **Select cells** to move, swap, or clear them
+6. **Customize visuals** in the Visual Settings tab
+7. **Export levels** using the Export & Save section
 
 ## 🔧 **Technical Features**
 
