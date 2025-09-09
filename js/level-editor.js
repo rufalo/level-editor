@@ -87,7 +87,7 @@ class LevelEditor {
         this.gridLineColor = '#999999';
         this.checkerColor1 = '#d0d0d0';
         this.checkerColor2 = '#e6f3ff';
-        this.autoOutline = false;
+        this.showOutlines = true; // Show outline overlay by default
         
         // Outline overlay system (visual only, not in tile data)
         this.outlineOverlay = new Set(); // Set of "x,y" strings for tiles that should appear as outline
@@ -99,7 +99,7 @@ class LevelEditor {
         this.updateCanvasSize();
         this.loadSettings(); // Load visual settings
         this.setMode('paint'); // Initialize with paint mode
-        this.clearOldCellLibrary(); // Clear old 8x5 cell library
+        this.clearOldPatternLibrary(); // Clear old 8x5 pattern library
         this.loadCellShelf(); // Load saved cells into shelf
     }
     
@@ -189,9 +189,10 @@ class LevelEditor {
             this.render();
         });
         
-        document.getElementById('autoOutline').addEventListener('change', (e) => {
-            this.autoOutline = e.target.checked;
+        document.getElementById('showOutlines').addEventListener('change', (e) => {
+            this.showOutlines = e.target.checked;
             this.saveSettings();
+            this.render(); // Re-render to show/hide outline overlay
         });
         
         // Color inputs (hidden, triggered by swatches)
@@ -354,10 +355,8 @@ class LevelEditor {
         this.setStateSampleMode = false; // Reset sample mode
         
         
-        // Apply auto-outline if enabled
-        if (this.autoOutline) {
-            this.applyAutoOutline();
-        }
+        // Always update auto-outline overlay (visual display controlled by showOutlines setting)
+        this.applyAutoOutline();
         
         // Update brush preview when not drawing
         if (e) {
@@ -778,7 +777,7 @@ class LevelEditor {
     }
     
     drawOutlineOverlay(viewStartX, viewStartY, viewEndX, viewEndY) {
-        if (!this.outlineOverlay || this.outlineOverlay.size === 0) return;
+        if (!this.showOutlines || !this.outlineOverlay || this.outlineOverlay.size === 0) return;
         
         // Set outline style - similar to filled tiles but slightly transparent
         this.ctx.fillStyle = 'rgba(100, 100, 100, 0.8)'; // Dark gray with transparency
@@ -969,6 +968,9 @@ class LevelEditor {
         
         // Hide canvas drop zone
         this.showCanvasDropZone = false;
+        
+        // Always update auto-outline overlay after cell operations
+        this.applyAutoOutline();
         
         this.render();
     }
@@ -1447,7 +1449,7 @@ class LevelEditor {
         // Get cell data
         const cellData = this.getCellData(selectedCell.x, selectedCell.y);
         
-        // Create cell library entry
+        // Create pattern library entry
         const cellEntry = {
             name: cellName,
             timestamp: now.toISOString(),
@@ -1460,7 +1462,7 @@ class LevelEditor {
         // Save to localStorage
         const savedCells = this.getSavedCells();
         savedCells[cellName] = cellEntry;
-        localStorage.setItem('cellLibrary', JSON.stringify(savedCells));
+        localStorage.setItem('patternLibrary', JSON.stringify(savedCells));
         
         alert(`Cell saved as: ${cellName}`);
     }
@@ -1504,7 +1506,7 @@ class LevelEditor {
     
     getSavedCells() {
         try {
-            const saved = localStorage.getItem('cellLibrary');
+            const saved = localStorage.getItem('patternLibrary');
             return saved ? JSON.parse(saved) : {};
         } catch (error) {
             console.error('Error loading saved cells:', error);
@@ -1512,10 +1514,11 @@ class LevelEditor {
         }
     }
     
-    clearOldCellLibrary() {
-        // Clear the old cell library since we changed from 8x5 to 5x5 cells
-        localStorage.removeItem('cellLibrary');
-        console.log('Cleared old cell library due to cell size change (8x5 → 5x5)');
+    clearOldPatternLibrary() {
+        // Clear the old pattern library since we changed from 8x5 to 5x5 cells
+        localStorage.removeItem('cellLibrary'); // Remove old key
+        localStorage.removeItem('patternLibrary'); // Remove new key too for clean slate
+        console.log('Cleared old pattern library due to cell size change (8x5 → 5x5)');
     }
     
     saveSettings() {
@@ -1525,7 +1528,7 @@ class LevelEditor {
             gridLineColor: this.gridLineColor,
             checkerColor1: this.checkerColor1,
             checkerColor2: this.checkerColor2,
-            autoOutline: this.autoOutline
+            showOutlines: this.showOutlines
         };
         localStorage.setItem('levelEditorSettings', JSON.stringify(settings));
     }
@@ -1541,11 +1544,11 @@ class LevelEditor {
                 this.gridLineColor = settings.gridLineColor ?? '#999999';
                 this.checkerColor1 = settings.checkerColor1 ?? '#d0d0d0';
                 this.checkerColor2 = settings.checkerColor2 ?? '#e6f3ff';
-                this.autoOutline = settings.autoOutline ?? false;
+                this.showOutlines = settings.showOutlines ?? true;
                 
                 // Update UI controls
                 document.getElementById('showBorders').checked = this.showBorders;
-                document.getElementById('autoOutline').checked = this.autoOutline;
+                document.getElementById('showOutlines').checked = this.showOutlines;
                 document.getElementById('borderColor').value = this.borderColor;
                 document.getElementById('gridLineColor').value = this.gridLineColor;
                 document.getElementById('checkerColor1').value = this.checkerColor1;
@@ -1612,11 +1615,11 @@ class LevelEditor {
         this.gridLineColor = '#999999';
         this.checkerColor1 = '#d0d0d0';
         this.checkerColor2 = '#e6f3ff';
-        this.autoOutline = false;
+        this.showOutlines = true;
         
         // Update UI controls
         document.getElementById('showBorders').checked = this.showBorders;
-        document.getElementById('autoOutline').checked = this.autoOutline;
+        document.getElementById('showOutlines').checked = this.showOutlines;
         document.getElementById('borderColor').value = this.borderColor;
         document.getElementById('gridLineColor').value = this.gridLineColor;
         document.getElementById('checkerColor1').value = this.checkerColor1;
@@ -1756,8 +1759,8 @@ class LevelEditor {
         const rectWidth = bounds.width * this.cellWidth * this.tileSize;
         const rectHeight = bounds.height * this.cellHeight * this.tileSize;
         
-        const arrowSize = 20 / this.zoom;
-        const arrowOffset = 30 / this.zoom;
+        const arrowSize = 40 / this.zoom;
+        const arrowOffset = 50 / this.zoom;
         
         this.ctx.fillStyle = '#FF9800';
         this.ctx.strokeStyle = '#F57C00';
@@ -1900,12 +1903,120 @@ class LevelEditor {
                 break;
         }
         
-        // For row/column operations, we need to handle displacement differently
-        if (deltaY !== 0) {
-            this.shiftRows(deltaY, bounds);
-        } else if (deltaX !== 0) {
-            this.shiftColumns(deltaX, bounds);
+        // Check if this is a single cell selection
+        if (this.selectedCells.length === 1) {
+            this.shiftSingleCell(deltaX, deltaY);
+        } else {
+            // For multi-cell selections, move just the selected cells as a group
+            this.shiftSelectedCells(deltaX, deltaY);
         }
+    }
+    
+    shiftSingleCell(deltaX, deltaY) {
+        const cell = this.selectedCells[0];
+        const currentX = cell.x;
+        const currentY = cell.y;
+        
+        // Calculate target position with wraparound
+        const targetX = (currentX + deltaX + this.totalGridCols) % this.totalGridCols;
+        const targetY = (currentY + deltaY + this.totalGridRows) % this.totalGridRows;
+        
+        // Get both cell data
+        const currentCellData = this.getCellData(currentX, currentY);
+        const targetCellData = this.getCellData(targetX, targetY);
+        
+        // Swap the cell contents
+        this.setCellData(currentX, currentY, targetCellData);
+        this.setCellData(targetX, targetY, currentCellData);
+        
+        // Update cell activity for both cells
+        this.updateCellActivity(currentX, currentY);
+        this.updateCellActivity(targetX, targetY);
+        
+        // Update selection to follow the moved cell
+        this.selectedCells = [{ x: targetX, y: targetY }];
+        this.updateSelectionUI();
+        
+        // Always update auto-outline overlay after cell movement
+        this.applyAutoOutline();
+        
+        this.render();
+        this.showTemporaryMessage(`Cell moved ${deltaX > 0 ? 'right' : deltaX < 0 ? 'left' : deltaY > 0 ? 'down' : 'up'}`);
+    }
+    
+    shiftSelectedCells(deltaX, deltaY) {
+        // Save the data of all selected cells
+        const selectedCellData = new Map();
+        
+        // First, save all selected cell data
+        for (const cell of this.selectedCells) {
+            const key = `${cell.x},${cell.y}`;
+            selectedCellData.set(key, this.getCellData(cell.x, cell.y));
+        }
+        
+        // Calculate target positions for all selected cells
+        const targetPositions = new Map();
+        const conflictCells = new Map(); // Cells that will be displaced
+        
+        for (const cell of this.selectedCells) {
+            const targetX = (cell.x + deltaX + this.totalGridCols) % this.totalGridCols;
+            const targetY = (cell.y + deltaY + this.totalGridRows) % this.totalGridRows;
+            const targetKey = `${targetX},${targetY}`;
+            const originalKey = `${cell.x},${cell.y}`;
+            
+            targetPositions.set(originalKey, { x: targetX, y: targetY });
+            
+            // If target position is not in our selection, save what's there (will be displaced)
+            if (!this.isCellInSelection(targetX, targetY)) {
+                conflictCells.set(targetKey, this.getCellData(targetX, targetY));
+            }
+        }
+        
+        // Clear all selected cells first
+        for (const cell of this.selectedCells) {
+            this.setCellData(cell.x, cell.y, { tiles: Array(this.cellHeight).fill().map(() => Array(this.cellWidth).fill(-1)) });
+        }
+        
+        // Place displaced data into the now-empty selected cell positions
+        let displacementIndex = 0;
+        const displacedDataArray = Array.from(conflictCells.values());
+        
+        for (const cell of this.selectedCells) {
+            if (displacementIndex < displacedDataArray.length) {
+                this.setCellData(cell.x, cell.y, displacedDataArray[displacementIndex]);
+                displacementIndex++;
+            }
+            // Any remaining cells stay empty (already cleared above)
+        }
+        
+        // Place selected cell data in new target positions
+        for (const cell of this.selectedCells) {
+            const originalKey = `${cell.x},${cell.y}`;
+            const targetPos = targetPositions.get(originalKey);
+            const cellData = selectedCellData.get(originalKey);
+            
+            this.setCellData(targetPos.x, targetPos.y, cellData);
+        }
+        
+        // Update cell activity for all affected cells
+        for (const cell of this.selectedCells) {
+            this.updateCellActivity(cell.x, cell.y);
+            const targetPos = targetPositions.get(`${cell.x},${cell.y}`);
+            this.updateCellActivity(targetPos.x, targetPos.y);
+        }
+        
+        // Update selection to new positions
+        this.selectedCells = this.selectedCells.map(cell => {
+            const targetPos = targetPositions.get(`${cell.x},${cell.y}`);
+            return { x: targetPos.x, y: targetPos.y };
+        });
+        
+        this.updateSelectionUI();
+        this.applyAutoOutline();
+        this.render();
+        
+        const direction = deltaX > 0 ? 'right' : deltaX < 0 ? 'left' : deltaY > 0 ? 'down' : 'up';
+        this.showTemporaryMessage(`${this.selectedCells.length} cells moved ${direction}`);
     }
     
     shiftRows(deltaY, bounds) {
@@ -2129,11 +2240,11 @@ class LevelEditor {
         
         // Add text shadow
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        this.ctx.fillText('📁 Drop here to save cell to library', textX + 1 / this.zoom, textY + 1 / this.zoom);
+        this.ctx.fillText('📁 Drop here to save pattern to library', textX + 1 / this.zoom, textY + 1 / this.zoom);
         
         // Draw main text
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('📁 Drop here to save cell to library', textX, textY);
+        this.ctx.fillText('📁 Drop here to save pattern to library', textX, textY);
         
         // Reset text properties
         this.ctx.textAlign = 'start';
@@ -2464,7 +2575,7 @@ class LevelEditor {
         if (confirm(`Delete cell "${cellName}"?`)) {
             const savedCells = this.getSavedCells();
             delete savedCells[cellName];
-            localStorage.setItem('cellLibrary', JSON.stringify(savedCells));
+            localStorage.setItem('patternLibrary', JSON.stringify(savedCells));
             this.loadCellShelf(); // Refresh shelf
         }
     }
@@ -2531,7 +2642,7 @@ class LevelEditor {
         // Get cell data
         const cellData = this.getCellData(selectedCell.x, selectedCell.y);
         
-        // Create cell library entry
+        // Create pattern library entry
         const cellEntry = {
             name: cellName,
             timestamp: now.toISOString(),
@@ -2544,7 +2655,7 @@ class LevelEditor {
         // Save to localStorage
         const savedCells = this.getSavedCells();
         savedCells[cellName] = cellEntry;
-        localStorage.setItem('cellLibrary', JSON.stringify(savedCells));
+        localStorage.setItem('patternLibrary', JSON.stringify(savedCells));
         
         // Refresh shelf to show new cell
         this.loadCellShelf();

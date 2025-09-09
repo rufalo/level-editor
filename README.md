@@ -9,7 +9,7 @@ A professional hierarchical level editor for rapid level creation and modular wo
 - **Inverted Drawing** - cells start filled, drawing creates walkable space
 - **Star Pattern Brushes** with 5 different sizes (1x1 to 5x5)
 - **Real-time Preview** showing affected tiles
-- **Visual Cell Library** with drag-and-drop functionality
+- **Visual Pattern Library** with drag-and-drop functionality
 
 ### **Drawing Tools**
 - **Blockout Mode** - Primary tool for carving empty spaces
@@ -26,7 +26,7 @@ A professional hierarchical level editor for rapid level creation and modular wo
 - **Center Guidelines** - Dark blue center lines for alignment
 - **Visual Outlines** - Semi-transparent overlay system for auto-outlining
 
-### **Cell Library System**
+### **Pattern Library System**
 - **Save System** - Drag selected cells to green drop zone
 - **Load System** - Drag thumbnails from shelf to canvas
 - **Persistence** - Auto-saved to localStorage with timestamps
@@ -85,7 +85,7 @@ A professional hierarchical level editor for rapid level creation and modular wo
 ### **Storage**
 - **localStorage** → Auto-saved with timestamps
 - **JSON Format** → Human-readable level data
-- **Cell Library** → Persistent thumbnail system
+- **Pattern Library** → Persistent thumbnail system
 - **Level Management** → Save/load complete level states
 - **Export System** → Convert visual outlines to permanent tiles on export
 
@@ -105,7 +105,7 @@ A professional hierarchical level editor for rapid level creation and modular wo
 
 ### **Current Status** ✅
 - Level Blockout Mode complete
-- Visual cell library system
+- Visual pattern library system
 - Drawing tools and brushes
 - Save/load functionality
 - Visual outline system with export capability
