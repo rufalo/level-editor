@@ -89,6 +89,9 @@ class LevelEditor {
         this.checkerColor2 = '#e6f3ff';
         this.autoOutline = false;
         
+        // Outline overlay system (visual only, not in tile data)
+        this.outlineOverlay = new Set(); // Set of "x,y" strings for tiles that should appear as outline
+        
         // Initialize
         this.initializeTileData();
         this.setupEventListeners();
@@ -177,6 +180,7 @@ class LevelEditor {
         // Level Library
         document.getElementById('saveLevel').addEventListener('click', () => this.saveLevel());
         document.getElementById('loadLevel').addEventListener('click', () => this.loadLevel());
+        document.getElementById('exportLevel').addEventListener('click', () => this.exportLevelWithOutlines());
         
         // Border controls
         document.getElementById('showBorders').addEventListener('change', (e) => {
@@ -535,6 +539,9 @@ class LevelEditor {
             }
         }
         
+        // Draw outline overlay (visual outlines that don't affect tile data)
+        this.drawOutlineOverlay(viewStartX, viewStartY, viewEndX, viewEndY);
+        
         // Draw grid lines
         this.drawGrid();
         
@@ -546,6 +553,7 @@ class LevelEditor {
         // Draw unified cell selection highlight
         if (this.selectedCells.length > 0 && this.currentMode === 'selectCell') {
             this.drawMultiCellSelectionHighlight();
+            this.drawSelectionArrows();
         }
         
         // Draw selection rectangle while selecting
@@ -769,6 +777,25 @@ class LevelEditor {
         }
     }
     
+    drawOutlineOverlay(viewStartX, viewStartY, viewEndX, viewEndY) {
+        if (!this.outlineOverlay || this.outlineOverlay.size === 0) return;
+        
+        // Set outline style - similar to filled tiles but slightly transparent
+        this.ctx.fillStyle = 'rgba(100, 100, 100, 0.8)'; // Dark gray with transparency
+        
+        // Draw each outline tile in the visible area
+        for (let worldY = Math.max(0, viewStartY); worldY < viewEndY; worldY++) {
+            for (let worldX = Math.max(0, viewStartX); worldX < viewEndX; worldX++) {
+                const tileKey = `${worldX},${worldY}`;
+                if (this.outlineOverlay.has(tileKey)) {
+                    const pixelX = worldX * this.tileSize;
+                    const pixelY = worldY * this.tileSize;
+                    this.ctx.fillRect(pixelX, pixelY, this.tileSize, this.tileSize);
+                }
+            }
+        }
+    }
+    
     clearGrid() {
         for (let y = 0; y < this.totalHeight; y++) {
             for (let x = 0; x < this.totalWidth; x++) {
@@ -811,6 +838,11 @@ class LevelEditor {
     }
     
     handleCellMouseDown(e) {
+        // Check if clicking on selection arrows first
+        if (this.checkArrowClick(e)) {
+            return;
+        }
+        
         const tile = this.getTileFromMouse(e);
         if (!tile) return;
         
@@ -1355,6 +1387,49 @@ class LevelEditor {
         }
     }
     
+    exportLevelWithOutlines() {
+        if (!this.outlineOverlay || this.outlineOverlay.size === 0) {
+            alert('No visual outlines to export. Use regular save instead.');
+            return;
+        }
+        
+        // Create a copy of the current tile data
+        const exportTileData = this.tileData.map(row => [...row]);
+        
+        // Convert visual outlines to real filled tiles (1) in the export data
+        for (const tileKey of this.outlineOverlay) {
+            const [x, y] = tileKey.split(',').map(Number);
+            if (y >= 0 && y < exportTileData.length && x >= 0 && x < exportTileData[y].length) {
+                exportTileData[y][x] = 1; // Convert outline to filled tile
+            }
+        }
+        
+        // Generate auto name with timestamp and "exported" prefix
+        const now = new Date();
+        const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-');
+        const levelName = `exported-level-${timestamp}`;
+        
+        // Collect level data with exported tiles
+        const levelData = {
+            name: levelName,
+            timestamp: now.toISOString(),
+            gridSize: { cols: this.totalGridCols, rows: this.totalGridRows },
+            cellSize: { width: this.cellWidth, height: this.cellHeight },
+            tileData: exportTileData, // Use the exported data with outlines converted
+            activeCells: Array.from(this.activeCells),
+            version: '1.0',
+            exported: true, // Mark as exported version
+            originalOutlines: this.outlineOverlay.size // Track how many outlines were converted
+        };
+        
+        // Save to localStorage
+        const savedLevels = this.getSavedLevels();
+        savedLevels[levelName] = levelData;
+        localStorage.setItem('levelLibrary', JSON.stringify(savedLevels));
+        
+        alert(`Level exported with ${this.outlineOverlay.size} visual outlines converted to filled tiles.\\nSaved as: ${levelName}`);
+    }
+    
     saveCell() {
         if (this.selectedCells.length === 0) {
             alert('Please select a cell first!');
@@ -1559,8 +1634,8 @@ class LevelEditor {
     
     
     applyAutoOutline() {
-        const affectedCells = new Set();
-        const tilesToOutline = new Set();
+        // Clear existing outline overlay
+        this.outlineOverlay.clear();
         
         // Scan entire grid for -1 tiles adjacent to 0 tiles
         for (let y = 0; y < this.totalHeight; y++) {
@@ -1585,32 +1660,15 @@ class LevelEditor {
                     }
                     
                     if (hasEmptyNeighbor) {
-                        tilesToOutline.add(`${x},${y}`);
+                        this.outlineOverlay.add(`${x},${y}`);
                     }
                 }
             }
         }
         
-        // Convert all marked tiles to filled (1) tiles
-        for (const tileKey of tilesToOutline) {
-            const [x, y] = tileKey.split(',').map(Number);
-            this.tileData[y][x] = 1; // Set to filled/black
-            
-            // Track affected cells
-            const cellX = Math.floor(x / this.cellWidth);
-            const cellY = Math.floor(y / this.cellHeight);
-            affectedCells.add(`${cellX},${cellY}`);
-        }
-        
-        // Update activity for all affected cells
-        for (const cellKey of affectedCells) {
-            const [cellX, cellY] = cellKey.split(',').map(Number);
-            this.updateCellActivity(cellX, cellY);
-        }
-        
-        if (tilesToOutline.size > 0) {
+        if (this.outlineOverlay.size > 0) {
             this.render();
-            console.log(`Auto-outline: ${tilesToOutline.size} transparent tiles converted to filled`);
+            console.log(`Auto-outline: ${this.outlineOverlay.size} transparent tiles marked for visual outline`);
         }
     }
     
@@ -1662,6 +1720,336 @@ class LevelEditor {
         
         // Reset line dash
         this.ctx.setLineDash([]);
+    }
+    
+    getSelectionBounds() {
+        if (this.selectedCells.length === 0) return null;
+        
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        
+        for (const cell of this.selectedCells) {
+            minX = Math.min(minX, cell.x);
+            maxX = Math.max(maxX, cell.x);
+            minY = Math.min(minY, cell.y);
+            maxY = Math.max(maxY, cell.y);
+        }
+        
+        return {
+            startX: minX,
+            endX: maxX,
+            startY: minY,
+            endY: maxY,
+            width: maxX - minX + 1,
+            height: maxY - minY + 1
+        };
+    }
+    
+    drawSelectionArrows() {
+        if (this.currentMode !== 'selectCell' || this.selectedCells.length === 0) return;
+        
+        const bounds = this.getSelectionBounds();
+        if (!bounds) return;
+        
+        const rectX = bounds.startX * this.cellWidth * this.tileSize;
+        const rectY = bounds.startY * this.cellHeight * this.tileSize;
+        const rectWidth = bounds.width * this.cellWidth * this.tileSize;
+        const rectHeight = bounds.height * this.cellHeight * this.tileSize;
+        
+        const arrowSize = 20 / this.zoom;
+        const arrowOffset = 30 / this.zoom;
+        
+        this.ctx.fillStyle = '#FF9800';
+        this.ctx.strokeStyle = '#F57C00';
+        this.ctx.lineWidth = 2 / this.zoom;
+        
+        // Store arrow positions for click detection
+        this.selectionArrows = {
+            up: {
+                x: rectX + rectWidth / 2 - arrowSize / 2,
+                y: rectY - arrowOffset - arrowSize,
+                width: arrowSize,
+                height: arrowSize,
+                direction: 'up'
+            },
+            down: {
+                x: rectX + rectWidth / 2 - arrowSize / 2,
+                y: rectY + rectHeight + arrowOffset,
+                width: arrowSize,
+                height: arrowSize,
+                direction: 'down'
+            },
+            left: {
+                x: rectX - arrowOffset - arrowSize,
+                y: rectY + rectHeight / 2 - arrowSize / 2,
+                width: arrowSize,
+                height: arrowSize,
+                direction: 'left'
+            },
+            right: {
+                x: rectX + rectWidth + arrowOffset,
+                y: rectY + rectHeight / 2 - arrowSize / 2,
+                width: arrowSize,
+                height: arrowSize,
+                direction: 'right'
+            }
+        };
+        
+        // Draw arrows
+        this.drawArrow(this.selectionArrows.up);
+        this.drawArrow(this.selectionArrows.down);
+        this.drawArrow(this.selectionArrows.left);
+        this.drawArrow(this.selectionArrows.right);
+    }
+    
+    drawArrow(arrow) {
+        const { x, y, width, height, direction } = arrow;
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        const arrowHeadSize = width * 0.3;
+        
+        this.ctx.beginPath();
+        
+        // Draw arrow based on direction
+        switch(direction) {
+            case 'up':
+                this.ctx.moveTo(centerX, y);
+                this.ctx.lineTo(centerX - arrowHeadSize, y + arrowHeadSize);
+                this.ctx.lineTo(centerX - arrowHeadSize * 0.5, y + arrowHeadSize);
+                this.ctx.lineTo(centerX - arrowHeadSize * 0.5, y + height);
+                this.ctx.lineTo(centerX + arrowHeadSize * 0.5, y + height);
+                this.ctx.lineTo(centerX + arrowHeadSize * 0.5, y + arrowHeadSize);
+                this.ctx.lineTo(centerX + arrowHeadSize, y + arrowHeadSize);
+                break;
+            case 'down':
+                this.ctx.moveTo(centerX, y + height);
+                this.ctx.lineTo(centerX - arrowHeadSize, y + height - arrowHeadSize);
+                this.ctx.lineTo(centerX - arrowHeadSize * 0.5, y + height - arrowHeadSize);
+                this.ctx.lineTo(centerX - arrowHeadSize * 0.5, y);
+                this.ctx.lineTo(centerX + arrowHeadSize * 0.5, y);
+                this.ctx.lineTo(centerX + arrowHeadSize * 0.5, y + height - arrowHeadSize);
+                this.ctx.lineTo(centerX + arrowHeadSize, y + height - arrowHeadSize);
+                break;
+            case 'left':
+                this.ctx.moveTo(x, centerY);
+                this.ctx.lineTo(x + arrowHeadSize, centerY - arrowHeadSize);
+                this.ctx.lineTo(x + arrowHeadSize, centerY - arrowHeadSize * 0.5);
+                this.ctx.lineTo(x + width, centerY - arrowHeadSize * 0.5);
+                this.ctx.lineTo(x + width, centerY + arrowHeadSize * 0.5);
+                this.ctx.lineTo(x + arrowHeadSize, centerY + arrowHeadSize * 0.5);
+                this.ctx.lineTo(x + arrowHeadSize, centerY + arrowHeadSize);
+                break;
+            case 'right':
+                this.ctx.moveTo(x + width, centerY);
+                this.ctx.lineTo(x + width - arrowHeadSize, centerY - arrowHeadSize);
+                this.ctx.lineTo(x + width - arrowHeadSize, centerY - arrowHeadSize * 0.5);
+                this.ctx.lineTo(x, centerY - arrowHeadSize * 0.5);
+                this.ctx.lineTo(x, centerY + arrowHeadSize * 0.5);
+                this.ctx.lineTo(x + width - arrowHeadSize, centerY + arrowHeadSize * 0.5);
+                this.ctx.lineTo(x + width - arrowHeadSize, centerY + arrowHeadSize);
+                break;
+        }
+        
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.stroke();
+    }
+    
+    checkArrowClick(e) {
+        if (!this.selectionArrows || this.selectedCells.length === 0) return false;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const canvasX = e.clientX - rect.left;
+        const canvasY = e.clientY - rect.top;
+        
+        // Transform canvas coordinates to world coordinates
+        const worldX = (canvasX / this.zoom) + (this.viewportX * this.cellWidth * this.tileSize) + this.viewportOffsetX;
+        const worldY = (canvasY / this.zoom) + (this.viewportY * this.cellHeight * this.tileSize) + this.viewportOffsetY;
+        
+        // Check each arrow
+        for (const [key, arrow] of Object.entries(this.selectionArrows)) {
+            if (worldX >= arrow.x && worldX <= arrow.x + arrow.width &&
+                worldY >= arrow.y && worldY <= arrow.y + arrow.height) {
+                
+                this.shiftSelection(arrow.direction);
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    shiftSelection(direction) {
+        const bounds = this.getSelectionBounds();
+        if (!bounds) return;
+        
+        let deltaX = 0, deltaY = 0;
+        
+        switch(direction) {
+            case 'up':
+                deltaY = -1;
+                break;
+            case 'down':
+                deltaY = 1;
+                break;
+            case 'left':
+                deltaX = -1;
+                break;
+            case 'right':
+                deltaX = 1;
+                break;
+        }
+        
+        // For row/column operations, we need to handle displacement differently
+        if (deltaY !== 0) {
+            this.shiftRows(deltaY, bounds);
+        } else if (deltaX !== 0) {
+            this.shiftColumns(deltaX, bounds);
+        }
+    }
+    
+    shiftRows(deltaY, bounds) {
+        // Save all affected row data
+        const rowData = new Map();
+        
+        // Save selection rows
+        for (let y = bounds.startY; y <= bounds.endY; y++) {
+            const rowCells = [];
+            for (let x = 0; x < this.totalGridCols; x++) {
+                rowCells.push(this.getCellData(x, y));
+            }
+            rowData.set(y, rowCells);
+        }
+        
+        // Calculate target row that will be displaced
+        let targetRow;
+        if (deltaY > 0) {
+            // Moving down, the row below the selection will be displaced
+            targetRow = (bounds.endY + 1) % this.totalGridRows;
+        } else {
+            // Moving up, the row above the selection will be displaced  
+            targetRow = (bounds.startY - 1 + this.totalGridRows) % this.totalGridRows;
+        }
+        
+        // Save the target row that will be displaced
+        if (!rowData.has(targetRow)) {
+            const targetRowCells = [];
+            for (let x = 0; x < this.totalGridCols; x++) {
+                targetRowCells.push(this.getCellData(x, targetRow));
+            }
+            rowData.set(targetRow, targetRowCells);
+        }
+        
+        // Move the displaced row to the opposite end of selection
+        let displacedRowDestination;
+        if (deltaY > 0) {
+            // Selection moved down, displaced row goes to where selection started
+            displacedRowDestination = bounds.startY;
+        } else {
+            // Selection moved up, displaced row goes to where selection ended
+            displacedRowDestination = bounds.endY;
+        }
+        
+        // Apply the row shifts
+        const targetRowCells = rowData.get(targetRow);
+        for (let x = 0; x < this.totalGridCols; x++) {
+            this.setCellData(x, displacedRowDestination, targetRowCells[x]);
+            this.updateCellActivity(x, displacedRowDestination);
+        }
+        
+        // Move selection rows to their new positions
+        for (let y = bounds.startY; y <= bounds.endY; y++) {
+            const newY = (y + deltaY + this.totalGridRows) % this.totalGridRows;
+            if (newY !== displacedRowDestination) { // Don't overwrite the displaced row we just placed
+                const cells = rowData.get(y);
+                for (let x = 0; x < this.totalGridCols; x++) {
+                    this.setCellData(x, newY, cells[x]);
+                    this.updateCellActivity(x, newY);
+                }
+            }
+        }
+        
+        // Update selection positions
+        this.selectedCells = this.selectedCells.map(cell => ({
+            x: cell.x,
+            y: (cell.y + deltaY + this.totalGridRows) % this.totalGridRows
+        }));
+        
+        this.updateSelectionUI();
+        this.render();
+        this.showTemporaryMessage(`Rows shifted ${deltaY > 0 ? 'down' : 'up'}`);
+    }
+    
+    shiftColumns(deltaX, bounds) {
+        // Save all affected column data
+        const colData = new Map();
+        
+        // Save selection columns
+        for (let x = bounds.startX; x <= bounds.endX; x++) {
+            const colCells = [];
+            for (let y = 0; y < this.totalGridRows; y++) {
+                colCells.push(this.getCellData(x, y));
+            }
+            colData.set(x, colCells);
+        }
+        
+        // Calculate target column that will be displaced
+        let targetCol;
+        if (deltaX > 0) {
+            // Moving right, the column to the right of selection will be displaced
+            targetCol = (bounds.endX + 1) % this.totalGridCols;
+        } else {
+            // Moving left, the column to the left of selection will be displaced
+            targetCol = (bounds.startX - 1 + this.totalGridCols) % this.totalGridCols;
+        }
+        
+        // Save the target column that will be displaced
+        if (!colData.has(targetCol)) {
+            const targetColCells = [];
+            for (let y = 0; y < this.totalGridRows; y++) {
+                targetColCells.push(this.getCellData(targetCol, y));
+            }
+            colData.set(targetCol, targetColCells);
+        }
+        
+        // Move the displaced column to the opposite end of selection
+        let displacedColDestination;
+        if (deltaX > 0) {
+            // Selection moved right, displaced column goes to where selection started
+            displacedColDestination = bounds.startX;
+        } else {
+            // Selection moved left, displaced column goes to where selection ended
+            displacedColDestination = bounds.endX;
+        }
+        
+        // Apply the column shifts
+        const targetColCells = colData.get(targetCol);
+        for (let y = 0; y < this.totalGridRows; y++) {
+            this.setCellData(displacedColDestination, y, targetColCells[y]);
+            this.updateCellActivity(displacedColDestination, y);
+        }
+        
+        // Move selection columns to their new positions
+        for (let x = bounds.startX; x <= bounds.endX; x++) {
+            const newX = (x + deltaX + this.totalGridCols) % this.totalGridCols;
+            if (newX !== displacedColDestination) { // Don't overwrite the displaced column we just placed
+                const cells = colData.get(x);
+                for (let y = 0; y < this.totalGridRows; y++) {
+                    this.setCellData(newX, y, cells[y]);
+                    this.updateCellActivity(newX, y);
+                }
+            }
+        }
+        
+        // Update selection positions
+        this.selectedCells = this.selectedCells.map(cell => ({
+            x: (cell.x + deltaX + this.totalGridCols) % this.totalGridCols,
+            y: cell.y
+        }));
+        
+        this.updateSelectionUI();
+        this.render();
+        this.showTemporaryMessage(`Columns shifted ${deltaX > 0 ? 'right' : 'left'}`);
     }
     
     updateSelectionUI() {
@@ -1908,6 +2296,16 @@ class LevelEditor {
                         this.showTemporaryMessage('No pattern copied to paste');
                     }
                     return;
+            }
+        }
+        
+        // Handle delete key for clearing selected cells
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (this.currentMode === 'selectCell' && this.selectedCells.length > 0) {
+                e.preventDefault();
+                this.clearSelectedCell();
+                this.showTemporaryMessage(`Cleared ${this.selectedCells.length} selected cell${this.selectedCells.length > 1 ? 's' : ''}`);
+                return;
             }
         }
         

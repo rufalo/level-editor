@@ -5,7 +5,7 @@ A professional hierarchical level editor for rapid level creation and modular wo
 ## 🎨 **Features**
 
 ### **Level Blockout Mode**
-- **13x13 Cell Grid** system for rapid prototyping
+- **10x10 Cell Grid** system for rapid prototyping
 - **Inverted Drawing** - cells start filled, drawing creates walkable space
 - **Star Pattern Brushes** with 5 different sizes (1x1 to 5x5)
 - **Real-time Preview** showing affected tiles
@@ -14,7 +14,8 @@ A professional hierarchical level editor for rapid level creation and modular wo
 ### **Drawing Tools**
 - **Blockout Mode** - Primary tool for carving empty spaces
 - **Connection Tiles** - Place yellow connection markers
-- **Cell Management** - Select, move, swap, clear, and fill cells
+- **Visual Outline System** - Auto-outline mode creates visual borders without modifying tile data
+- **Cell Management** - Select, move, swap, clear, and fill cells with directional arrows
 - **Brush Control** - Size adjustment with slider or Ctrl+Scroll
 
 ### **Visual Design**
@@ -22,6 +23,8 @@ A professional hierarchical level editor for rapid level creation and modular wo
 - **Zoom & Pan** - Mouse wheel zoom (0.1x-5.0x), WASD/middle-click pan
 - **Smart Grid** - Darker grid lines visible on all cell types
 - **Cell Borders** - Light blue borders distinguish cell boundaries
+- **Center Guidelines** - Dark blue center lines for alignment
+- **Visual Outlines** - Semi-transparent overlay system for auto-outlining
 
 ### **Cell Library System**
 - **Save System** - Drag selected cells to green drop zone
@@ -50,8 +53,10 @@ A professional hierarchical level editor for rapid level creation and modular wo
 ### **Cell Operations**
 - **Save Cell** → Drag selected cell to green drop zone
 - **Load Cell** → Drag thumbnail to canvas
-- **Delete Cell** → Hover thumbnail → click ×
+- **Delete Cell** → Hover thumbnail → click × or Delete key
 - **Cell Management** → Clear Cell, Fill Cell buttons
+- **Cell Shifting** → Click directional arrows around selection to shift content
+- **Multi-Selection** → Rectangle selection with unified operations
 
 ## 🚀 **Getting Started**
 
@@ -65,10 +70,11 @@ A professional hierarchical level editor for rapid level creation and modular wo
 ## 🔧 **Technical Features**
 
 ### **Grid System**
-- **Level Grid** → 13x13 cells (configurable)
+- **Level Grid** → 10x10 cells (configurable)
 - **Cell Size** → 5x5 tiles per cell
-- **Total Resolution** → 65x65 tiles (2080x2080 pixels)
+- **Total Resolution** → 50x50 tiles (1600x1600 pixels)
 - **Coordinate System** → Proper world coordinate transformations
+- **Visual Overlay** → Separate rendering layer for non-destructive outlines
 
 ### **Rendering**
 - **Canvas Rendering** → HTML5 Canvas 2D with layered system
@@ -78,14 +84,15 @@ A professional hierarchical level editor for rapid level creation and modular wo
 
 ### **Storage**
 - **localStorage** → Auto-saved with timestamps
-- **JSON Format** → Human-readable room data
+- **JSON Format** → Human-readable level data
 - **Cell Library** → Persistent thumbnail system
 - **Level Management** → Save/load complete level states
+- **Export System** → Convert visual outlines to permanent tiles on export
 
 ## 📁 **Files**
 
 - **`level-editor.html`** → Complete level editor implementation
-- **`js/level-editor.js`** → Main editor controller (1500+ lines)
+- **`js/level-editor.js`** → Main editor controller (2000+ lines)
 
 ## 🎯 **Best For**
 
@@ -101,6 +108,9 @@ A professional hierarchical level editor for rapid level creation and modular wo
 - Visual cell library system
 - Drawing tools and brushes
 - Save/load functionality
+- Visual outline system with export capability
+- Advanced selection system with directional shifting
+- Center guidelines and improved viewport management
 
 ### **Next Phase** 🔄
 - Detailed Level Editor (16x10 tile resolution)
@@ -114,6 +124,6 @@ A professional hierarchical level editor for rapid level creation and modular wo
 
 ---
 
-**Version:** Level Editor v1.0  
-**Status:** Level Blockout Mode complete  
+**Version:** Level Editor v1.1  
+**Status:** Visual Outline System complete  
 **Last Updated:** 2025-01-09
