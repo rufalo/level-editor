@@ -29,21 +29,24 @@
 ## ✅ **Fixed Issues**
 
 1. **Brush Size Implementation** - Now uses original brush patterns (plus, square, extensions)
-2. **Outline Update Timing** - Called after completed actions (mouse up, not during drawing)
-3. **Ctrl + Scroll** - Added brush size adjustment with mouse wheel
+2. **Wall Indicator Update Timing** - Called after completed actions (mouse up, not during drawing)
+3. **Ctrl + Scroll** - Added brush size adjustment with mouse wheel (no zoom conflict)
 4. **Input Conflicts** - Fixed right-click conflict (now only erases, middle-click pans)
 5. **Keyboard Panning** - Added Arrow keys and WASD for panning
 6. **Input Consistency** - All inputs now work as expected without conflicts
+7. **Event Handler Conflicts** - Removed duplicate wheel event handlers
+8. **Terminology** - Renamed "outline system" to "wall indicators" for clarity
 
-## 📝 **Outline Update Reminder**
+## 📝 **Wall Indicator Update Reminder**
 
-**Call `this.applyAutoOutline()` after COMPLETED actions that change the grid:**
+**Call `this.applyWallIndicators()` after COMPLETED actions that change the grid:**
 - After mouse up (in `handleMouseUp`) - when drawing stroke is complete
 - After cell clearing (in `clearSelectedCell`)
 - After cell shifting (in `shiftSelectedCells`)
 - After grid clearing (in `clearGrid`)
 - After level import (in `importLevel`)
 
-**DO NOT call during continuous actions like:**
-- During tile painting (in `handleTileInteraction`) - too heavy!
-- During mouse move - only call on mouse up
+**Smart rendering:**
+- Only re-renders if wall indicators actually change
+- Efficient calculation and update system
+- No unnecessary re-renders during continuous actions
