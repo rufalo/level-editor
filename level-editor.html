@@ -121,13 +121,6 @@
             background: #F57C00;
         }
         
-        .clear-button {
-            background: #f44336;
-        }
-        
-        .clear-button:hover {
-            background: #d32f2f;
-        }
         
         .info {
             background: #e3f2fd;
@@ -220,178 +213,7 @@
             border: 1px solid #ffcc02;
         }
         
-        /* Quick Library */
-        .quick-library {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-            gap: 8px;
-            margin-bottom: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #eee;
-            padding: 8px;
-            border-radius: 4px;
-        }
         
-        .quick-cell {
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 4px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s ease;
-            background: white;
-        }
-        
-        .quick-cell:hover {
-            border-color: #2196F3;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-        }
-        
-        .quick-cell.selected {
-            border-color: #FF9800;
-            background-color: #fff3e0;
-        }
-        
-        .quick-cell canvas {
-            display: block;
-            margin: 0 auto 4px auto;
-        }
-        
-        .quick-cell-name {
-            font-size: 10px;
-            color: #666;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        /* Cell Shelf Styles */
-        .cell-shelf {
-            margin-top: 20px;
-            background: white;
-            border: 2px solid #333;
-            border-radius: 8px;
-            padding: 15px;
-        }
-        
-        .shelf-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .shelf-header h3 {
-            margin: 0;
-            color: #333;
-        }
-        
-        .shelf-info {
-            font-size: 12px;
-            color: #666;
-            font-style: italic;
-        }
-        
-        .shelf-container {
-            display: flex;
-            gap: 15px;
-            min-height: 120px;
-        }
-        
-        .shelf-items {
-            flex: 1;
-            display: flex;
-            gap: 10px;
-            padding: 10px;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            min-height: 100px;
-            overflow-x: auto;
-            align-items: flex-start;
-        }
-        
-        .shelf-drop-zone {
-            width: 150px;
-            background: #e8f4fd;
-            border: 2px dashed #4d9fff;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            cursor: default;
-            transition: all 0.3s ease;
-        }
-        
-        .shelf-drop-zone.drag-over {
-            background: #d4edda;
-            border-color: #28a745;
-            color: #155724;
-        }
-        
-        .cell-thumbnail-shelf {
-            flex-shrink: 0;
-            width: 80px;
-            height: 80px;
-            border: 2px solid #ccc;
-            border-radius: 6px;
-            padding: 6px;
-            background: white;
-            cursor: grab;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        
-        .cell-thumbnail-shelf:hover {
-            border-color: #4d9fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .cell-thumbnail-shelf:active {
-            cursor: grabbing;
-        }
-        
-        .cell-thumbnail-shelf canvas {
-            width: 100%;
-            height: 70px;
-            border: 1px solid #eee;
-            border-radius: 2px;
-        }
-        
-        .cell-thumbnail-shelf .cell-name {
-            font-size: 10px;
-            color: #666;
-            text-align: center;
-            margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .cell-thumbnail-shelf .delete-btn {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 16px;
-            height: 16px;
-            background: #ff4444;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            font-size: 10px;
-            cursor: pointer;
-            display: none;
-        }
-        
-        .cell-thumbnail-shelf:hover .delete-btn {
-            display: block;
-        }
 
         /* Tabs */
         .tabs {
@@ -488,14 +310,6 @@
                 min-width: auto;
             }
             
-            .shelf-container {
-                flex-direction: column;
-            }
-            
-            .shelf-drop-zone {
-                width: auto;
-                min-height: 60px;
-            }
             
             .tabs {
                 flex-wrap: wrap;
@@ -507,153 +321,7 @@
             }
         }
         
-        /* Modal styles */
-        .modal {
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
         
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 0;
-            border: 2px solid #333;
-            border-radius: 8px;
-            width: 80%;
-            max-width: 800px;
-            max-height: 80%;
-            overflow: hidden;
-        }
-        
-        .modal-header {
-            background-color: #f0f0f0;
-            padding: 15px 20px;
-            border-bottom: 1px solid #ccc;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .modal-header h2 {
-            margin: 0;
-            color: #333;
-        }
-        
-        .close-button {
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            color: #666;
-            background: none;
-            border: none;
-            padding: 0;
-        }
-        
-        .close-button:hover {
-            color: #000;
-        }
-        
-        .modal-body {
-            padding: 20px;
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-        
-        .library-controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .library-controls button {
-            width: auto;
-            margin-bottom: 0;
-            padding: 8px 16px;
-        }
-        
-        .library-info {
-            color: #666;
-            font-size: 12px;
-            font-style: italic;
-            margin-left: auto;
-        }
-        
-        .library-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 10px;
-        }
-        
-        .cell-thumbnail {
-            border: 2px solid #ccc;
-            border-radius: 8px;
-            padding: 10px;
-            background: white;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .cell-thumbnail:hover {
-            border-color: #2196F3;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .cell-thumbnail.selected {
-            border-color: #FF9800;
-            background-color: #fff3e0;
-        }
-        
-        .cell-thumbnail canvas {
-            display: block;
-            margin: 0 auto 10px auto;
-            border: 1px solid #ddd;
-        }
-        
-        .cell-info {
-            text-align: center;
-        }
-        
-        .cell-name {
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #333;
-        }
-        
-        .cell-details {
-            font-size: 12px;
-            color: #666;
-        }
-        
-        @media (max-width: 600px) {
-            .modal-content {
-                width: 95%;
-                margin: 10% auto;
-            }
-            
-            .library-grid {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            }
-            
-            .library-controls {
-                flex-wrap: wrap;
-            }
-            
-            .library-info {
-                margin-left: 0;
-                margin-top: 10px;
-                width: 100%;
-                text-align: center;
-            }
-        }
     </style>
 </head>
 <body>
@@ -677,21 +345,6 @@
                     <strong>Controls:</strong> WASD/Arrows=Pan, Mouse Wheel=Zoom, Middle Click=Drag
                 </div>
                 
-                <!-- Cell Shelf -->
-                <div class="cell-shelf">
-                    <div class="shelf-header">
-                        <h3>Pattern Library</h3>
-                        <span class="shelf-info">Drag cells to/from shelf to save/load</span>
-                    </div>
-                    <div class="shelf-container">
-                        <div class="shelf-items" id="cellShelf">
-                            <!-- Cell thumbnails will be added here dynamically -->
-                        </div>
-                        <div class="shelf-drop-zone" id="shelfDropZone">
-                            Drop selected cell here to save
-                        </div>
-                    </div>
-                </div>
             </div>
             
             <div class="controls">
@@ -729,8 +382,6 @@
                     <div class="control-group">
                         <h3>Cell Mode</h3>
                         <button id="selectCellMode" class="tool-button">Select Cell Mode</button>
-                        <button id="pasteMode" class="tool-button">Paste Mode</button>
-                        <button id="cloneMode" class="tool-button">Clone Mode</button>
                         <div class="checkbox-container">
                             <input type="checkbox" id="swapMode" checked>
                             <label for="swapMode" class="checkbox-label">Swap cells when dragging</label>
@@ -740,16 +391,8 @@
                     <div class="control-group" id="cellMenu" style="display: none;">
                         <h3>Selected Cell Actions</h3>
                         <div class="selected-info">Cell (<span id="selectedCellX">0</span>, <span id="selectedCellY">0</span>) selected</div>
-                        <button id="clearCell" class="clear-button">Clear Cell</button>
-                        <button id="fillCell">Fill Cell</button>
                     </div>
                     
-                    <div class="control-group">
-                        <h3>Level Library</h3>
-                        <button id="saveLevel">Save Level</button>
-                        <button id="loadLevel">Load Level</button>
-                        <button id="exportLevel">Export Level (with outlines)</button>
-                    </div>
                     
                     <div class="control-group">
                         <h3>Grid Actions</h3>
@@ -768,11 +411,20 @@
                             <label for="showBorders" class="checkbox-label">Show cell borders</label>
                         </div>
                         
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="showCenterGuides" checked>
+                            <label for="showCenterGuides" class="checkbox-label">Show center grid lines</label>
+                        </div>
+                        
                         <div class="color-input-group">
                             <div class="color-swatch" id="borderColorSwatch" style="background-color: #4d9fff;"></div>
                             <label for="borderColor">Cell border color</label>
                             <input type="color" id="borderColor" value="#4d9fff" class="hidden-color-input">
                         </div>
+                        
+                        <label for="borderWeight">Cell border weight:</label>
+                        <input type="range" id="borderWeight" min="1" max="10" value="3" step="1">
+                        <div class="info">Weight: <span id="borderWeightValue">3</span>px</div>
                         
                         <div class="color-input-group">
                             <div class="color-swatch" id="gridLineColorSwatch" style="background-color: #999999;"></div>
@@ -791,6 +443,16 @@
                             <label for="checkerColor2">Checker color 2</label>
                             <input type="color" id="checkerColor2" value="#e6f3ff" class="hidden-color-input">
                         </div>
+                        
+                        <div class="color-input-group">
+                            <div class="color-swatch" id="centerGuideColorSwatch" style="background-color: #00008b;"></div>
+                            <label for="centerGuideColor">Center guide color</label>
+                            <input type="color" id="centerGuideColor" value="#00008b" class="hidden-color-input">
+                        </div>
+                        
+                        <label for="centerGuideWeight">Center guide weight:</label>
+                        <input type="range" id="centerGuideWeight" min="1" max="15" value="5" step="1">
+                        <div class="info">Weight: <span id="centerGuideWeightValue">5</span>px</div>
                         
                         <button id="resetSettings" class="reset-button">Reset to Defaults</button>
                     </div>

@@ -41,13 +41,12 @@ class LevelEditor {
         this.activeCells = new Set(); // Set of "x,y" strings for active cells
         
         // Drawing modes
-        this.currentMode = 'paint'; // 'paint', 'selectCell', 'clone', 'paste'
+        this.currentMode = 'paint'; // 'paint', 'selectCell'
         
         // Unified selection system (handles single and multiple cells)
         this.isDraggingCell = false;
         this.dragStartCell = null;
         this.swapMode = true; // Default to swap mode enabled
-        this.isCloneMode = false;
         
         // Multi-cell rectangle selection
         this.selectionStart = null; // {x, y} in cell coordinates where selection started
@@ -55,9 +54,6 @@ class LevelEditor {
         this.isSelecting = false;   // Whether we're currently drawing selection rectangle
         this.selectedCells = [];    // Array of selected cell coordinates [{x, y}, ...]
         
-        // Copy/paste system
-        this.copiedPattern = null;  // Stores copied tile data and dimensions
-        this.pastePreviewPos = null; // {x, y} in cell coordinates for paste preview
         
         
         // Drawing state
@@ -78,16 +74,18 @@ class LevelEditor {
         this.showBrushPreview = false;
         this.brushPreviewTile = null;
         
-        // Canvas drop zone for cell saving
-        this.showCanvasDropZone = false;
         
         // Visual settings
         this.showBorders = true;
         this.borderColor = '#4d9fff';
+        this.borderWeight = 3; // Stroke weight for cell borders
         this.gridLineColor = '#999999';
         this.checkerColor1 = '#d0d0d0';
         this.checkerColor2 = '#e6f3ff';
         this.showOutlines = true; // Show outline overlay by default
+        this.showCenterGuides = true; // Show center grid lines by default
+        this.centerGuideColor = '#00008b'; // Dark blue for center guides
+        this.centerGuideWeight = 5; // Stroke weight for center guides
         
         // Outline overlay system (visual only, not in tile data)
         this.outlineOverlay = new Set(); // Set of "x,y" strings for tiles that should appear as outline
@@ -99,8 +97,6 @@ class LevelEditor {
         this.updateCanvasSize();
         this.loadSettings(); // Load visual settings
         this.setMode('paint'); // Initialize with paint mode
-        this.clearOldPatternLibrary(); // Clear old 8x5 pattern library
-        this.loadCellShelf(); // Load saved cells into shelf
     }
     
     initializeTileData() {
@@ -167,20 +163,11 @@ class LevelEditor {
         // Mode buttons
         document.getElementById('paintMode').addEventListener('click', () => this.setMode('paint'));
         document.getElementById('selectCellMode').addEventListener('click', () => this.setMode('selectCell'));
-        document.getElementById('pasteMode').addEventListener('click', () => this.setMode('paste'));
-        document.getElementById('cloneMode').addEventListener('click', () => this.setMode('clone'));
         
-        // Cell actions
-        document.getElementById('clearCell').addEventListener('click', () => this.clearSelectedCell());
-        document.getElementById('fillCell').addEventListener('click', () => this.fillSelectedCell());
         
         // Grid action buttons
         document.getElementById('clearGrid').addEventListener('click', () => this.clearGrid());
         
-        // Level Library
-        document.getElementById('saveLevel').addEventListener('click', () => this.saveLevel());
-        document.getElementById('loadLevel').addEventListener('click', () => this.loadLevel());
-        document.getElementById('exportLevel').addEventListener('click', () => this.exportLevelWithOutlines());
         
         // Border controls
         document.getElementById('showBorders').addEventListener('change', (e) => {
@@ -193,6 +180,12 @@ class LevelEditor {
             this.showOutlines = e.target.checked;
             this.saveSettings();
             this.render(); // Re-render to show/hide outline overlay
+        });
+        
+        document.getElementById('showCenterGuides').addEventListener('change', (e) => {
+            this.showCenterGuides = e.target.checked;
+            this.saveSettings();
+            this.render(); // Re-render to show/hide center guides
         });
         
         // Color inputs (hidden, triggered by swatches)
@@ -224,6 +217,30 @@ class LevelEditor {
             this.render();
         });
         
+        // Center guide color input
+        document.getElementById('centerGuideColor').addEventListener('change', (e) => {
+            this.centerGuideColor = e.target.value;
+            document.getElementById('centerGuideColorSwatch').style.backgroundColor = e.target.value;
+            this.saveSettings();
+            this.render();
+        });
+        
+        // Border weight control
+        document.getElementById('borderWeight').addEventListener('input', (e) => {
+            this.borderWeight = parseInt(e.target.value);
+            document.getElementById('borderWeightValue').textContent = this.borderWeight;
+            this.saveSettings();
+            this.render();
+        });
+        
+        // Center guide weight control
+        document.getElementById('centerGuideWeight').addEventListener('input', (e) => {
+            this.centerGuideWeight = parseInt(e.target.value);
+            document.getElementById('centerGuideWeightValue').textContent = this.centerGuideWeight;
+            this.saveSettings();
+            this.render();
+        });
+        
         // Reset settings button
         document.getElementById('resetSettings').addEventListener('click', () => {
             this.resetSettingsToDefaults();
@@ -241,8 +258,8 @@ class LevelEditor {
             document.getElementById('brushSizeValue2').textContent = this.brushSize;
         });
         
-        // Cell shelf drag and drop
-        this.setupCellShelfDragDrop();
+        // Cell shelf drag and drop disabled
+        // this.setupCellShelfDragDrop();
         
         // Tab switching
         this.setupTabs();
@@ -285,7 +302,7 @@ class LevelEditor {
             return;
         }
         
-        if (this.currentMode === 'selectCell' || this.currentMode === 'clone' || this.currentMode === 'paste') {
+        if (this.currentMode === 'selectCell') {
             this.handleCellMouseDown(e);
             return;
         }
@@ -549,6 +566,11 @@ class LevelEditor {
             this.drawCellBorders();
         }
         
+        // Draw center guide lines if enabled (after cell borders)
+        if (this.showCenterGuides) {
+            this.drawCenterGuides();
+        }
+        
         // Draw unified cell selection highlight
         if (this.selectedCells.length > 0 && this.currentMode === 'selectCell') {
             this.drawMultiCellSelectionHighlight();
@@ -565,10 +587,6 @@ class LevelEditor {
             this.drawBrushPreview();
         }
         
-        // Draw canvas drop zone
-        if (this.showCanvasDropZone) {
-            this.drawCanvasDropZone();
-        }
         
         // Restore context
         this.ctx.restore();
@@ -709,8 +727,6 @@ class LevelEditor {
             this.ctx.stroke();
         }
         
-        // Draw center guide lines
-        this.drawCenterGuides();
     }
     
     drawCenterGuides() {
@@ -722,8 +738,8 @@ class LevelEditor {
         const centerPixelY = centerCellY * this.cellHeight * this.tileSize;
         
         // Set center guide line style
-        this.ctx.strokeStyle = 'rgb(0, 0, 139)'; // Solid dark blue
-        this.ctx.lineWidth = 5 / this.zoom; // Even thicker than regular grid lines
+        this.ctx.strokeStyle = this.centerGuideColor;
+        this.ctx.lineWidth = this.centerGuideWeight / this.zoom; // Adjust line width for zoom
         
         // Draw vertical center line
         this.ctx.beginPath();
@@ -740,7 +756,7 @@ class LevelEditor {
     
     drawCellBorders() {
         this.ctx.strokeStyle = this.borderColor;
-        this.ctx.lineWidth = 3 / this.zoom; // Adjust line width for zoom
+        this.ctx.lineWidth = this.borderWeight / this.zoom; // Adjust line width for zoom
         
         const cellWidth = this.cellWidth * this.tileSize;
         const cellHeight = this.cellHeight * this.tileSize;
@@ -801,13 +817,19 @@ class LevelEditor {
                 this.tileData[y][x] = -1; // Clear to transparent
             }
         }
+        
+        // Clear all cell activity since everything is now transparent
+        this.activeCells.clear();
+        
+        // Clear outline overlay since there are no tiles to outline
+        this.outlineOverlay.clear();
+        
         this.render();
     }
     
     // Mode management
     setMode(mode) {
         this.currentMode = mode;
-        this.isCloneMode = (mode === 'clone');
         
         // Update UI buttons
         document.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active'));
@@ -821,15 +843,6 @@ class LevelEditor {
             case 'selectCell':
                 document.getElementById('selectCellMode').classList.add('active');
                 this.canvas.style.cursor = 'pointer';
-                break;
-            case 'paste':
-                document.getElementById('pasteMode').classList.add('active');
-                this.canvas.style.cursor = 'crosshair';
-                document.getElementById('cellMenu').style.display = 'none';
-                break;
-            case 'clone':
-                document.getElementById('cloneMode').classList.add('active');
-                this.canvas.style.cursor = 'copy';
                 break;
         }
         
@@ -849,31 +862,12 @@ class LevelEditor {
         const cellX = Math.floor(tile.x / this.cellWidth);
         const cellY = Math.floor(tile.y / this.cellHeight);
         
-        // Handle paste mode - paste copied pattern at clicked location
-        if (this.currentMode === 'paste') {
-            if (this.copiedPattern) {
-                this.pastePattern(cellX, cellY);
-                this.render();
-            } else {
-                console.log('No pattern copied to paste');
-            }
-            return;
-        }
-        
-        // If in clone mode and we have selections, handle cloning
-        if (this.isCloneMode && this.selectedCells.length > 0) {
-            // TODO: Implement multi-cell cloning
-            this.render();
-            return;
-        }
         
         // Check if clicked on existing selection for dragging
         if (this.selectedCells.length > 0 && this.isCellInSelection(cellX, cellY)) {
             this.isDraggingCell = true;
             this.dragStartCell = { x: cellX, y: cellY };
             this.canvas.style.cursor = 'grabbing';
-            // Show canvas drop zone
-            this.showCanvasDropZone = true;
             this.render();
             return;
         }
@@ -914,26 +908,11 @@ class LevelEditor {
     }
     
     handleCellDrop(e) {
-        // Check if we're dropping in the canvas drop zone area
-        if (this.showCanvasDropZone && this.isDropOnCanvasDropZone(e)) {
-            // Dropping on canvas drop zone - save the cell
-            this.saveCellToShelf();
-            this.isDraggingCell = false;
-            this.dragStartCell = null;
-            this.canvas.style.cursor = 'pointer';
-            // Hide canvas drop zone
-            this.showCanvasDropZone = false;
-            this.render();
-            return;
-        }
-        
         const tile = this.getTileFromMouse(e);
         if (!tile) {
             this.isDraggingCell = false;
             this.dragStartCell = null;
             this.canvas.style.cursor = 'pointer';
-            // Hide canvas drop zone
-            this.showCanvasDropZone = false;
             this.render();
             return;
         }
@@ -966,66 +945,12 @@ class LevelEditor {
         this.dragStartCell = null;
         this.canvas.style.cursor = 'pointer';
         
-        // Hide canvas drop zone
-        this.showCanvasDropZone = false;
-        
         // Always update auto-outline overlay after cell operations
         this.applyAutoOutline();
         
         this.render();
     }
     
-    clearSelectedCell() {
-        if (this.selectedCells.length === 0) return;
-        
-        // Clear all selected cells
-        for (const cell of this.selectedCells) {
-            const startX = cell.x * this.cellWidth;
-            const startY = cell.y * this.cellHeight;
-            const endX = startX + this.cellWidth;
-            const endY = startY + this.cellHeight;
-            
-            // Reset cell to default state: completely transparent
-            for (let y = startY; y < endY; y++) {
-                for (let x = startX; x < endX; x++) {
-                    if (y < this.totalHeight && x < this.totalWidth) {
-                        this.tileData[y][x] = -1; // Reset to transparent
-                    }
-                }
-            }
-            
-            // Update cell activity
-            this.updateCellActivity(cell.x, cell.y);
-        }
-        
-        this.render();
-    }
-    
-    fillSelectedCell() {
-        if (this.selectedCells.length === 0) return;
-        
-        // Fill all selected cells
-        for (const cell of this.selectedCells) {
-            const startX = cell.x * this.cellWidth;
-            const startY = cell.y * this.cellHeight;
-            const endX = startX + this.cellWidth;
-            const endY = startY + this.cellHeight;
-            
-            // Fill entire cell with solid tiles
-            for (let y = startY; y < endY; y++) {
-                for (let x = startX; x < endX; x++) {
-                    if (y < this.totalHeight && x < this.totalWidth) {
-                        this.tileData[y][x] = 1; // Fill with solid black tiles
-                    }
-                }
-            }
-            
-            // Update cell activity
-            this.updateCellActivity(cell.x, cell.y);
-        }
-        
-        this.render();
-    }
     
     moveCell(fromCellX, fromCellY, toCellX, toCellY) {
         // Get source cell data
@@ -1201,334 +1126,82 @@ class LevelEditor {
         return this.selectedCells.some(cell => cell.x === cellX && cell.y === cellY);
     }
     
-    copySelectedCells() {
-        if (this.selectedCells.length === 0) {
-            console.log('No cells selected to copy');
-            return false;
-        }
+    clearSelectedCell() {
+        if (this.selectedCells.length === 0) return;
         
-        // Find bounding box of selection
-        let minX = this.totalGridCols, maxX = -1;
-        let minY = this.totalGridRows, maxY = -1;
-        
+        // Clear all selected cells
         for (const cell of this.selectedCells) {
-            minX = Math.min(minX, cell.x);
-            maxX = Math.max(maxX, cell.x);
-            minY = Math.min(minY, cell.y);
-            maxY = Math.max(maxY, cell.y);
-        }
-        
-        const patternWidth = maxX - minX + 1;
-        const patternHeight = maxY - minY + 1;
-        
-        // Copy tile data from the selection area
-        const patternData = [];
-        for (let cellY = 0; cellY < patternHeight; cellY++) {
-            patternData[cellY] = [];
-            for (let cellX = 0; cellX < patternWidth; cellX++) {
-                const sourceCellX = minX + cellX;
-                const sourceCellY = minY + cellY;
-                
-                // Copy entire cell data (5x5 tiles)
-                const cellTiles = [];
-                for (let tileY = 0; tileY < this.cellHeight; tileY++) {
-                    cellTiles[tileY] = [];
-                    for (let tileX = 0; tileX < this.cellWidth; tileX++) {
-                        const worldTileX = sourceCellX * this.cellWidth + tileX;
-                        const worldTileY = sourceCellY * this.cellHeight + tileY;
-                        
-                        if (worldTileX < this.totalWidth && worldTileY < this.totalHeight) {
-                            cellTiles[tileY][tileX] = this.tileData[worldTileY][worldTileX];
-                        } else {
-                            cellTiles[tileY][tileX] = -1; // Transparent for out-of-bounds
-                        }
+            const startX = cell.x * this.cellWidth;
+            const startY = cell.y * this.cellHeight;
+            const endX = startX + this.cellWidth;
+            const endY = startY + this.cellHeight;
+            
+            // Reset cell to default state: completely transparent
+            for (let y = startY; y < endY; y++) {
+                for (let x = startX; x < endX; x++) {
+                    if (y < this.totalHeight && x < this.totalWidth) {
+                        this.tileData[y][x] = -1; // Reset to transparent
                     }
                 }
-                patternData[cellY][cellX] = cellTiles;
             }
+            
+            // Update cell activity
+            this.updateCellActivity(cell.x, cell.y);
         }
         
-        this.copiedPattern = {
-            data: patternData,
-            width: patternWidth,
-            height: patternHeight,
-            originalSelection: [...this.selectedCells] // Keep for reference
-        };
+        // Update auto-outline overlay after clearing
+        this.applyAutoOutline();
         
-        console.log(`Copied ${patternWidth}x${patternHeight} cell pattern`);
-        return true;
+        this.render();
     }
     
-    pastePattern(targetCellX, targetCellY) {
-        if (!this.copiedPattern) {
-            console.log('No pattern copied to paste');
-            return false;
-        }
-        
-        const pattern = this.copiedPattern;
-        const affectedCells = new Set();
-        
-        // Paste the pattern
-        for (let cellY = 0; cellY < pattern.height; cellY++) {
-            for (let cellX = 0; cellX < pattern.width; cellX++) {
-                const destCellX = targetCellX + cellX;
-                const destCellY = targetCellY + cellY;
-                
-                // Check bounds
-                if (destCellX >= 0 && destCellX < this.totalGridCols &&
-                    destCellY >= 0 && destCellY < this.totalGridRows) {
-                    
-                    const cellTiles = pattern.data[cellY][cellX];
-                    
-                    // Paste each tile in the cell
-                    for (let tileY = 0; tileY < this.cellHeight; tileY++) {
-                        for (let tileX = 0; tileX < this.cellWidth; tileX++) {
-                            const worldTileX = destCellX * this.cellWidth + tileX;
-                            const worldTileY = destCellY * this.cellHeight + tileY;
-                            
-                            if (worldTileX < this.totalWidth && worldTileY < this.totalHeight) {
-                                const tileValue = cellTiles[tileY][tileX];
-                                
-                                // Only paste non-transparent tiles
-                                if (tileValue !== -1) {
-                                    this.tileData[worldTileY][worldTileX] = tileValue;
-                                }
-                            }
-                        }
-                    }
-                    
-                    affectedCells.add(`${destCellX},${destCellY}`);
-                }
-            }
-        }
-        
-        // Update activity for all affected cells
-        for (const cellKey of affectedCells) {
-            const [cellX, cellY] = cellKey.split(',').map(Number);
-            this.updateCellActivity(cellX, cellY);
-        }
-        
-        console.log(`Pasted pattern at (${targetCellX}, ${targetCellY})`);
-        return true;
-    }
     
+    // Level Library functions disabled
     saveLevel() {
-        // Generate auto name with timestamp
-        const now = new Date();
-        const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-');
-        const levelName = `level-${timestamp}`;
-        
-        // Collect level data
-        const levelData = {
-            name: levelName,
-            timestamp: now.toISOString(),
-            gridSize: { cols: this.totalGridCols, rows: this.totalGridRows },
-            cellSize: { width: this.cellWidth, height: this.cellHeight },
-            tileData: this.tileData,
-            activeCells: Array.from(this.activeCells),
-            version: '1.0'
-        };
-        
-        // Save to localStorage (for now - could be file system later)
-        const savedLevels = this.getSavedLevels();
-        savedLevels[levelName] = levelData;
-        localStorage.setItem('levelLibrary', JSON.stringify(savedLevels));
-        
-        alert(`Level saved as: ${levelName}`);
+        console.log('Level library disabled');
     }
     
     loadLevel() {
-        const savedLevels = this.getSavedLevels();
-        const levelNames = Object.keys(savedLevels);
-        
-        if (levelNames.length === 0) {
-            alert('No saved levels found!');
-            return;
-        }
-        
-        // For now, show simple prompt (could be fancy UI later)
-        const levelList = levelNames.map((name, index) => `${index + 1}. ${name}`).join('\\n');
-        const selection = prompt(`Select level to load:\\n\\n${levelList}\\n\\nEnter number (1-${levelNames.length}):`);
-        
-        const levelIndex = parseInt(selection) - 1;
-        if (isNaN(levelIndex) || levelIndex < 0 || levelIndex >= levelNames.length) {
-            alert('Invalid selection!');
-            return;
-        }
-        
-        const selectedLevelName = levelNames[levelIndex];
-        const levelData = savedLevels[selectedLevelName];
-        
-        // Load level data
-        this.tileData = levelData.tileData;
-        this.activeCells = new Set(levelData.activeCells || []);
-        
-        // Update grid size if different
-        if (levelData.gridSize) {
-            this.totalGridCols = levelData.gridSize.cols;
-            this.totalGridRows = levelData.gridSize.rows;
-        }
-        if (levelData.cellSize) {
-            this.cellWidth = levelData.cellSize.width;
-            this.cellHeight = levelData.cellSize.height;
-        }
-        
-        this.updateCanvasSize();
-        this.render();
-        
-        alert(`Level loaded: ${selectedLevelName}`);
+        console.log('Level library disabled');
     }
     
     getSavedLevels() {
-        try {
-            const saved = localStorage.getItem('levelLibrary');
-            return saved ? JSON.parse(saved) : {};
-        } catch (error) {
-            console.error('Error loading saved rooms:', error);
-            return {};
-        }
+        return {};
     }
     
     exportLevelWithOutlines() {
-        if (!this.outlineOverlay || this.outlineOverlay.size === 0) {
-            alert('No visual outlines to export. Use regular save instead.');
-            return;
-        }
-        
-        // Create a copy of the current tile data
-        const exportTileData = this.tileData.map(row => [...row]);
-        
-        // Convert visual outlines to real filled tiles (1) in the export data
-        for (const tileKey of this.outlineOverlay) {
-            const [x, y] = tileKey.split(',').map(Number);
-            if (y >= 0 && y < exportTileData.length && x >= 0 && x < exportTileData[y].length) {
-                exportTileData[y][x] = 1; // Convert outline to filled tile
-            }
-        }
-        
-        // Generate auto name with timestamp and "exported" prefix
-        const now = new Date();
-        const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-');
-        const levelName = `exported-level-${timestamp}`;
-        
-        // Collect level data with exported tiles
-        const levelData = {
-            name: levelName,
-            timestamp: now.toISOString(),
-            gridSize: { cols: this.totalGridCols, rows: this.totalGridRows },
-            cellSize: { width: this.cellWidth, height: this.cellHeight },
-            tileData: exportTileData, // Use the exported data with outlines converted
-            activeCells: Array.from(this.activeCells),
-            version: '1.0',
-            exported: true, // Mark as exported version
-            originalOutlines: this.outlineOverlay.size // Track how many outlines were converted
-        };
-        
-        // Save to localStorage
-        const savedLevels = this.getSavedLevels();
-        savedLevels[levelName] = levelData;
-        localStorage.setItem('levelLibrary', JSON.stringify(savedLevels));
-        
-        alert(`Level exported with ${this.outlineOverlay.size} visual outlines converted to filled tiles.\\nSaved as: ${levelName}`);
+        console.log('Level library disabled');
     }
     
+    // Pattern Library functions disabled
     saveCell() {
-        if (this.selectedCells.length === 0) {
-            alert('Please select a cell first!');
-            return;
-        }
-        
-        // Use the first selected cell if multiple are selected
-        const selectedCell = this.selectedCells[0];
-        
-        // Generate auto name with timestamp
-        const now = new Date();
-        const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-');
-        const cellName = `cell-${timestamp}`;
-        
-        // Get cell data
-        const cellData = this.getCellData(selectedCell.x, selectedCell.y);
-        
-        // Create pattern library entry
-        const cellEntry = {
-            name: cellName,
-            timestamp: now.toISOString(),
-            cellSize: { width: this.cellWidth, height: this.cellHeight },
-            data: cellData,
-            isActive: this.isCellActive(selectedCell.x, selectedCell.y),
-            version: '1.0'
-        };
-        
-        // Save to localStorage
-        const savedCells = this.getSavedCells();
-        savedCells[cellName] = cellEntry;
-        localStorage.setItem('patternLibrary', JSON.stringify(savedCells));
-        
-        alert(`Cell saved as: ${cellName}`);
+        console.log('Pattern library disabled');
     }
     
     loadCell() {
-        if (this.selectedCells.length === 0) {
-            alert('Please select a target cell first!');
-            return;
-        }
-        
-        // Use the first selected cell as the target
-        const targetCell = this.selectedCells[0];
-        
-        const savedCells = this.getSavedCells();
-        const cellNames = Object.keys(savedCells);
-        
-        if (cellNames.length === 0) {
-            alert('No saved cells found!');
-            return;
-        }
-        
-        // Show selection prompt
-        const cellList = cellNames.map((name, index) => `${index + 1}. ${name}`).join('\\n');
-        const selection = prompt(`Select cell to load:\\n\\n${cellList}\\n\\nEnter number (1-${cellNames.length}):`);
-        
-        const cellIndex = parseInt(selection) - 1;
-        if (isNaN(cellIndex) || cellIndex < 0 || cellIndex >= cellNames.length) {
-            alert('Invalid selection!');
-            return;
-        }
-        
-        const selectedCellName = cellNames[cellIndex];
-        const cellEntry = savedCells[selectedCellName];
-        
-        // Load cell data into target cell
-        this.setCellData(targetCell.x, targetCell.y, cellEntry.data);
-        this.render();
-        
-        alert(`Cell loaded: ${selectedCellName}`);
+        console.log('Pattern library disabled');
     }
     
     getSavedCells() {
-        try {
-            const saved = localStorage.getItem('patternLibrary');
-            return saved ? JSON.parse(saved) : {};
-        } catch (error) {
-            console.error('Error loading saved cells:', error);
-            return {};
-        }
+        return {};
     }
     
     clearOldPatternLibrary() {
-        // Clear the old pattern library since we changed from 8x5 to 5x5 cells
-        localStorage.removeItem('cellLibrary'); // Remove old key
-        localStorage.removeItem('patternLibrary'); // Remove new key too for clean slate
-        console.log('Cleared old pattern library due to cell size change (8x5 → 5x5)');
+        console.log('Pattern library disabled');
     }
     
     saveSettings() {
         const settings = {
             showBorders: this.showBorders,
             borderColor: this.borderColor,
+            borderWeight: this.borderWeight,
             gridLineColor: this.gridLineColor,
             checkerColor1: this.checkerColor1,
             checkerColor2: this.checkerColor2,
-            showOutlines: this.showOutlines
+            showOutlines: this.showOutlines,
+            showCenterGuides: this.showCenterGuides,
+            centerGuideColor: this.centerGuideColor,
+            centerGuideWeight: this.centerGuideWeight
         };
         localStorage.setItem('levelEditorSettings', JSON.stringify(settings));
     }
@@ -1541,18 +1214,26 @@ class LevelEditor {
                 
                 this.showBorders = settings.showBorders ?? true;
                 this.borderColor = settings.borderColor ?? '#4d9fff';
+                this.borderWeight = settings.borderWeight ?? 3;
                 this.gridLineColor = settings.gridLineColor ?? '#999999';
                 this.checkerColor1 = settings.checkerColor1 ?? '#d0d0d0';
                 this.checkerColor2 = settings.checkerColor2 ?? '#e6f3ff';
                 this.showOutlines = settings.showOutlines ?? true;
+                this.showCenterGuides = settings.showCenterGuides ?? true;
+                this.centerGuideColor = settings.centerGuideColor ?? '#00008b';
+                this.centerGuideWeight = settings.centerGuideWeight ?? 5;
                 
                 // Update UI controls
                 document.getElementById('showBorders').checked = this.showBorders;
                 document.getElementById('showOutlines').checked = this.showOutlines;
+                document.getElementById('showCenterGuides').checked = this.showCenterGuides;
                 document.getElementById('borderColor').value = this.borderColor;
+                document.getElementById('borderWeight').value = this.borderWeight;
                 document.getElementById('gridLineColor').value = this.gridLineColor;
                 document.getElementById('checkerColor1').value = this.checkerColor1;
                 document.getElementById('checkerColor2').value = this.checkerColor2;
+                document.getElementById('centerGuideColor').value = this.centerGuideColor;
+                document.getElementById('centerGuideWeight').value = this.centerGuideWeight;
                 
                 // Update color swatches
                 this.updateColorSwatches();
@@ -1591,7 +1272,8 @@ class LevelEditor {
             { swatch: 'borderColorSwatch', input: 'borderColor' },
             { swatch: 'gridLineColorSwatch', input: 'gridLineColor' },
             { swatch: 'checkerColor1Swatch', input: 'checkerColor1' },
-            { swatch: 'checkerColor2Swatch', input: 'checkerColor2' }
+            { swatch: 'checkerColor2Swatch', input: 'checkerColor2' },
+            { swatch: 'centerGuideColorSwatch', input: 'centerGuideColor' }
         ];
         
         swatches.forEach(({ swatch, input }) => {
@@ -1606,24 +1288,33 @@ class LevelEditor {
         document.getElementById('gridLineColorSwatch').style.backgroundColor = this.gridLineColor;
         document.getElementById('checkerColor1Swatch').style.backgroundColor = this.checkerColor1;
         document.getElementById('checkerColor2Swatch').style.backgroundColor = this.checkerColor2;
+        document.getElementById('centerGuideColorSwatch').style.backgroundColor = this.centerGuideColor;
     }
     
     resetSettingsToDefaults() {
         // Reset to default values
         this.showBorders = true;
         this.borderColor = '#4d9fff';
+        this.borderWeight = 3;
         this.gridLineColor = '#999999';
         this.checkerColor1 = '#d0d0d0';
         this.checkerColor2 = '#e6f3ff';
         this.showOutlines = true;
+        this.showCenterGuides = true;
+        this.centerGuideColor = '#00008b';
+        this.centerGuideWeight = 5;
         
         // Update UI controls
         document.getElementById('showBorders').checked = this.showBorders;
         document.getElementById('showOutlines').checked = this.showOutlines;
+        document.getElementById('showCenterGuides').checked = this.showCenterGuides;
         document.getElementById('borderColor').value = this.borderColor;
+        document.getElementById('borderWeight').value = this.borderWeight;
         document.getElementById('gridLineColor').value = this.gridLineColor;
         document.getElementById('checkerColor1').value = this.checkerColor1;
         document.getElementById('checkerColor2').value = this.checkerColor2;
+        document.getElementById('centerGuideColor').value = this.centerGuideColor;
+        document.getElementById('centerGuideWeight').value = this.centerGuideWeight;
         
         // Update color swatches
         this.updateColorSwatches();
@@ -1671,7 +1362,6 @@ class LevelEditor {
         
         if (this.outlineOverlay.size > 0) {
             this.render();
-            console.log(`Auto-outline: ${this.outlineOverlay.size} transparent tiles marked for visual outline`);
         }
     }
     
@@ -1945,70 +1635,55 @@ class LevelEditor {
     }
     
     shiftSelectedCells(deltaX, deltaY) {
-        // Save the data of all selected cells
-        const selectedCellData = new Map();
-        
-        // First, save all selected cell data
-        for (const cell of this.selectedCells) {
-            const key = `${cell.x},${cell.y}`;
-            selectedCellData.set(key, this.getCellData(cell.x, cell.y));
-        }
-        
-        // Calculate target positions for all selected cells
-        const targetPositions = new Map();
-        const conflictCells = new Map(); // Cells that will be displaced
-        
-        for (const cell of this.selectedCells) {
-            const targetX = (cell.x + deltaX + this.totalGridCols) % this.totalGridCols;
-            const targetY = (cell.y + deltaY + this.totalGridRows) % this.totalGridRows;
-            const targetKey = `${targetX},${targetY}`;
-            const originalKey = `${cell.x},${cell.y}`;
-            
-            targetPositions.set(originalKey, { x: targetX, y: targetY });
-            
-            // If target position is not in our selection, save what's there (will be displaced)
-            if (!this.isCellInSelection(targetX, targetY)) {
-                conflictCells.set(targetKey, this.getCellData(targetX, targetY));
+        // Sort cells by position to process them in the correct order
+        // When moving down/right, process from bottom/right to top/left
+        // When moving up/left, process from top/left to bottom/right
+        const sortedCells = [...this.selectedCells].sort((a, b) => {
+            if (deltaY > 0) {
+                // Moving down: process from bottom to top
+                return b.y - a.y;
+            } else if (deltaY < 0) {
+                // Moving up: process from top to bottom
+                return a.y - b.y;
+            } else if (deltaX > 0) {
+                // Moving right: process from right to left
+                return b.x - a.x;
+            } else if (deltaX < 0) {
+                // Moving left: process from left to right
+                return a.x - b.x;
             }
-        }
+            return 0;
+        });
         
-        // Clear all selected cells first
-        for (const cell of this.selectedCells) {
-            this.setCellData(cell.x, cell.y, { tiles: Array(this.cellHeight).fill().map(() => Array(this.cellWidth).fill(-1)) });
-        }
-        
-        // Place displaced data into the now-empty selected cell positions
-        let displacementIndex = 0;
-        const displacedDataArray = Array.from(conflictCells.values());
-        
-        for (const cell of this.selectedCells) {
-            if (displacementIndex < displacedDataArray.length) {
-                this.setCellData(cell.x, cell.y, displacedDataArray[displacementIndex]);
-                displacementIndex++;
-            }
-            // Any remaining cells stay empty (already cleared above)
-        }
-        
-        // Place selected cell data in new target positions
-        for (const cell of this.selectedCells) {
-            const originalKey = `${cell.x},${cell.y}`;
-            const targetPos = targetPositions.get(originalKey);
-            const cellData = selectedCellData.get(originalKey);
+        // Process each selected cell individually in the correct order
+        for (const cell of sortedCells) {
+            const newX = (cell.x + deltaX + this.totalGridCols) % this.totalGridCols;
+            const newY = (cell.y + deltaY + this.totalGridRows) % this.totalGridRows;
             
-            this.setCellData(targetPos.x, targetPos.y, cellData);
+            // Skip if already at target position (shouldn't happen with proper bounds)
+            if (newX === cell.x && newY === cell.y) {
+                continue;
+            }
+            
+            // Save the selected cell's data
+            const selectedCellData = this.getCellData(cell.x, cell.y);
+            
+            // Clear the selected cell (set to empty)
+            this.setCellData(cell.x, cell.y, this.createEmptyCell());
+            
+            // Move whatever is at the target position to the original position
+            const targetCellData = this.getCellData(newX, newY);
+            this.setCellData(cell.x, cell.y, targetCellData);
+            
+            // Move the selected cell to the target position
+            this.setCellData(newX, newY, selectedCellData);
         }
         
-        // Update cell activity for all affected cells
-        for (const cell of this.selectedCells) {
-            this.updateCellActivity(cell.x, cell.y);
-            const targetPos = targetPositions.get(`${cell.x},${cell.y}`);
-            this.updateCellActivity(targetPos.x, targetPos.y);
-        }
-        
-        // Update selection to new positions
+        // Update selection positions for all cells that were shifted
         this.selectedCells = this.selectedCells.map(cell => {
-            const targetPos = targetPositions.get(`${cell.x},${cell.y}`);
-            return { x: targetPos.x, y: targetPos.y };
+            const newX = (cell.x + deltaX + this.totalGridCols) % this.totalGridCols;
+            const newY = (cell.y + deltaY + this.totalGridRows) % this.totalGridRows;
+            return { x: newX, y: newY };
         });
         
         this.updateSelectionUI();
@@ -2020,147 +1695,96 @@ class LevelEditor {
     }
     
     shiftRows(deltaY, bounds) {
-        // Save all affected row data
-        const rowData = new Map();
+        // Only shift selected cells within their row bounds
+        const selectedCellsInRow = this.selectedCells.filter(cell => 
+            cell.y >= bounds.startY && cell.y <= bounds.endY
+        );
         
-        // Save selection rows
-        for (let y = bounds.startY; y <= bounds.endY; y++) {
-            const rowCells = [];
-            for (let x = 0; x < this.totalGridCols; x++) {
-                rowCells.push(this.getCellData(x, y));
+        if (selectedCellsInRow.length === 0) return;
+        
+        // Process each selected cell individually to avoid circular dependencies
+        for (const cell of selectedCellsInRow) {
+            const newY = (cell.y + deltaY + this.totalGridRows) % this.totalGridRows;
+            
+            // Skip if already at target position (shouldn't happen with proper bounds)
+            if (newY === cell.y) {
+                continue;
             }
-            rowData.set(y, rowCells);
+            
+            // Save the selected cell's data
+            const selectedCellData = this.getCellData(cell.x, cell.y);
+            
+            // Clear the selected cell (set to empty)
+            this.setCellData(cell.x, cell.y, this.createEmptyCell());
+            
+            // Move whatever is at the target position to the original position
+            const targetCellData = this.getCellData(cell.x, newY);
+            this.setCellData(cell.x, cell.y, targetCellData);
+            
+            // Move the selected cell to the target position
+            this.setCellData(cell.x, newY, selectedCellData);
         }
         
-        // Calculate target row that will be displaced
-        let targetRow;
-        if (deltaY > 0) {
-            // Moving down, the row below the selection will be displaced
-            targetRow = (bounds.endY + 1) % this.totalGridRows;
-        } else {
-            // Moving up, the row above the selection will be displaced  
-            targetRow = (bounds.startY - 1 + this.totalGridRows) % this.totalGridRows;
-        }
-        
-        // Save the target row that will be displaced
-        if (!rowData.has(targetRow)) {
-            const targetRowCells = [];
-            for (let x = 0; x < this.totalGridCols; x++) {
-                targetRowCells.push(this.getCellData(x, targetRow));
+        // Update selection positions for all cells that were shifted
+        this.selectedCells = this.selectedCells.map(cell => {
+            if (cell.y >= bounds.startY && cell.y <= bounds.endY) {
+                const newY = (cell.y + deltaY + this.totalGridRows) % this.totalGridRows;
+                return {
+                    x: cell.x,
+                    y: newY
+                };
             }
-            rowData.set(targetRow, targetRowCells);
-        }
-        
-        // Move the displaced row to the opposite end of selection
-        let displacedRowDestination;
-        if (deltaY > 0) {
-            // Selection moved down, displaced row goes to where selection started
-            displacedRowDestination = bounds.startY;
-        } else {
-            // Selection moved up, displaced row goes to where selection ended
-            displacedRowDestination = bounds.endY;
-        }
-        
-        // Apply the row shifts
-        const targetRowCells = rowData.get(targetRow);
-        for (let x = 0; x < this.totalGridCols; x++) {
-            this.setCellData(x, displacedRowDestination, targetRowCells[x]);
-            this.updateCellActivity(x, displacedRowDestination);
-        }
-        
-        // Move selection rows to their new positions
-        for (let y = bounds.startY; y <= bounds.endY; y++) {
-            const newY = (y + deltaY + this.totalGridRows) % this.totalGridRows;
-            if (newY !== displacedRowDestination) { // Don't overwrite the displaced row we just placed
-                const cells = rowData.get(y);
-                for (let x = 0; x < this.totalGridCols; x++) {
-                    this.setCellData(x, newY, cells[x]);
-                    this.updateCellActivity(x, newY);
-                }
-            }
-        }
-        
-        // Update selection positions
-        this.selectedCells = this.selectedCells.map(cell => ({
-            x: cell.x,
-            y: (cell.y + deltaY + this.totalGridRows) % this.totalGridRows
-        }));
+            return cell;
+        });
         
         this.updateSelectionUI();
         this.render();
-        this.showTemporaryMessage(`Rows shifted ${deltaY > 0 ? 'down' : 'up'}`);
+        this.showTemporaryMessage(`Selected cells shifted ${deltaY > 0 ? 'down' : 'up'}`);
     }
     
     shiftColumns(deltaX, bounds) {
-        // Save all affected column data
-        const colData = new Map();
+        // Only shift selected cells within their column bounds
+        const selectedCellsInCol = this.selectedCells.filter(cell => 
+            cell.x >= bounds.startX && cell.x <= bounds.endX
+        );
         
-        // Save selection columns
-        for (let x = bounds.startX; x <= bounds.endX; x++) {
-            const colCells = [];
-            for (let y = 0; y < this.totalGridRows; y++) {
-                colCells.push(this.getCellData(x, y));
+        if (selectedCellsInCol.length === 0) return;
+        
+        // Process each selected cell individually to avoid circular dependencies
+        for (const cell of selectedCellsInCol) {
+            const newX = (cell.x + deltaX + this.totalGridCols) % this.totalGridCols;
+            
+            // Skip if already at target position (shouldn't happen with proper bounds)
+            if (newX === cell.x) continue;
+            
+            // Save the selected cell's data
+            const selectedCellData = this.getCellData(cell.x, cell.y);
+            
+            // Clear the selected cell (set to empty)
+            this.setCellData(cell.x, cell.y, this.createEmptyCell());
+            
+            // Move whatever is at the target position to the original position
+            const targetCellData = this.getCellData(newX, cell.y);
+            this.setCellData(cell.x, cell.y, targetCellData);
+            
+            // Move the selected cell to the target position
+            this.setCellData(newX, cell.y, selectedCellData);
+        }
+        
+        // Update selection positions for all cells that were shifted
+        this.selectedCells = this.selectedCells.map(cell => {
+            if (cell.x >= bounds.startX && cell.x <= bounds.endX) {
+                return {
+                    x: (cell.x + deltaX + this.totalGridCols) % this.totalGridCols,
+                    y: cell.y
+                };
             }
-            colData.set(x, colCells);
-        }
-        
-        // Calculate target column that will be displaced
-        let targetCol;
-        if (deltaX > 0) {
-            // Moving right, the column to the right of selection will be displaced
-            targetCol = (bounds.endX + 1) % this.totalGridCols;
-        } else {
-            // Moving left, the column to the left of selection will be displaced
-            targetCol = (bounds.startX - 1 + this.totalGridCols) % this.totalGridCols;
-        }
-        
-        // Save the target column that will be displaced
-        if (!colData.has(targetCol)) {
-            const targetColCells = [];
-            for (let y = 0; y < this.totalGridRows; y++) {
-                targetColCells.push(this.getCellData(targetCol, y));
-            }
-            colData.set(targetCol, targetColCells);
-        }
-        
-        // Move the displaced column to the opposite end of selection
-        let displacedColDestination;
-        if (deltaX > 0) {
-            // Selection moved right, displaced column goes to where selection started
-            displacedColDestination = bounds.startX;
-        } else {
-            // Selection moved left, displaced column goes to where selection ended
-            displacedColDestination = bounds.endX;
-        }
-        
-        // Apply the column shifts
-        const targetColCells = colData.get(targetCol);
-        for (let y = 0; y < this.totalGridRows; y++) {
-            this.setCellData(displacedColDestination, y, targetColCells[y]);
-            this.updateCellActivity(displacedColDestination, y);
-        }
-        
-        // Move selection columns to their new positions
-        for (let x = bounds.startX; x <= bounds.endX; x++) {
-            const newX = (x + deltaX + this.totalGridCols) % this.totalGridCols;
-            if (newX !== displacedColDestination) { // Don't overwrite the displaced column we just placed
-                const cells = colData.get(x);
-                for (let y = 0; y < this.totalGridRows; y++) {
-                    this.setCellData(newX, y, cells[y]);
-                    this.updateCellActivity(newX, y);
-                }
-            }
-        }
-        
-        // Update selection positions
-        this.selectedCells = this.selectedCells.map(cell => ({
-            x: (cell.x + deltaX + this.totalGridCols) % this.totalGridCols,
-            y: cell.y
-        }));
+            return cell;
+        });
         
         this.updateSelectionUI();
         this.render();
-        this.showTemporaryMessage(`Columns shifted ${deltaX > 0 ? 'right' : 'left'}`);
+        this.showTemporaryMessage(`Selected cells shifted ${deltaX > 0 ? 'right' : 'left'}`);
     }
     
     updateSelectionUI() {
@@ -2208,74 +1832,6 @@ class LevelEditor {
         this.ctx.globalAlpha = 1.0;
     }
     
-    drawCanvasDropZone() {
-        // Calculate drop zone position at bottom of visible area
-        const dropZoneHeight = 60; // Height in world pixels
-        const dropZoneWidth = this.canvas.width / this.zoom; // Full width of viewport
-        
-        // Position at bottom of the visible area
-        const worldStartX = (this.viewportOffsetX + (this.viewportX * this.cellWidth * this.tileSize));
-        const worldStartY = (this.viewportOffsetY + (this.viewportY * this.cellHeight * this.tileSize));
-        const dropZoneY = worldStartY + (this.canvas.height / this.zoom) - dropZoneHeight - 20;
-        
-        // Draw drop zone background
-        this.ctx.fillStyle = 'rgba(76, 175, 80, 0.8)';
-        this.ctx.fillRect(worldStartX + 20, dropZoneY, dropZoneWidth - 40, dropZoneHeight);
-        
-        // Draw border
-        this.ctx.strokeStyle = '#4CAF50';
-        this.ctx.lineWidth = 3 / this.zoom;
-        this.ctx.setLineDash([10 / this.zoom, 5 / this.zoom]);
-        this.ctx.strokeRect(worldStartX + 20, dropZoneY, dropZoneWidth - 40, dropZoneHeight);
-        this.ctx.setLineDash([]); // Reset line dash
-        
-        // Draw text
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = `${16 / this.zoom}px Arial`;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        
-        const textX = worldStartX + dropZoneWidth / 2;
-        const textY = dropZoneY + dropZoneHeight / 2;
-        
-        // Add text shadow
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        this.ctx.fillText('📁 Drop here to save pattern to library', textX + 1 / this.zoom, textY + 1 / this.zoom);
-        
-        // Draw main text
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillText('📁 Drop here to save pattern to library', textX, textY);
-        
-        // Reset text properties
-        this.ctx.textAlign = 'start';
-        this.ctx.textBaseline = 'alphabetic';
-    }
-    
-    isDropOnCanvasDropZone(e) {
-        // Convert mouse coordinates to world coordinates
-        const rect = this.canvas.getBoundingClientRect();
-        const canvasX = e.clientX - rect.left;
-        const canvasY = e.clientY - rect.top;
-        
-        const worldPixelX = (canvasX / this.zoom) + (this.viewportX * this.cellWidth * this.tileSize) + this.viewportOffsetX;
-        const worldPixelY = (canvasY / this.zoom) + (this.viewportY * this.cellHeight * this.tileSize) + this.viewportOffsetY;
-        
-        // Calculate drop zone bounds (same as in drawCanvasDropZone)
-        const dropZoneHeight = 60;
-        const dropZoneWidth = this.canvas.width / this.zoom;
-        const worldStartX = (this.viewportOffsetX + (this.viewportX * this.cellWidth * this.tileSize));
-        const worldStartY = (this.viewportOffsetY + (this.viewportY * this.cellHeight * this.tileSize));
-        const dropZoneY = worldStartY + (this.canvas.height / this.zoom) - dropZoneHeight - 20;
-        
-        const dropZoneLeft = worldStartX + 20;
-        const dropZoneRight = worldStartX + dropZoneWidth - 20;
-        const dropZoneTop = dropZoneY;
-        const dropZoneBottom = dropZoneY + dropZoneHeight;
-        
-        // Check if mouse is within drop zone bounds
-        return worldPixelX >= dropZoneLeft && worldPixelX <= dropZoneRight &&
-               worldPixelY >= dropZoneTop && worldPixelY <= dropZoneBottom;
-    }
     
     // Pan and Zoom Methods
     panViewport(deltaX, deltaY) {
@@ -2388,28 +1944,6 @@ class LevelEditor {
             }
         }
         
-        // Handle copy/paste shortcuts
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-            switch(e.key.toLowerCase()) {
-                case 'c':
-                    e.preventDefault();
-                    if (this.selectedCells.length > 0) {
-                        this.copySelectedCells();
-                        this.showTemporaryMessage('Pattern copied!');
-                    }
-                    return;
-                case 'v':
-                    e.preventDefault();
-                    if (this.copiedPattern) {
-                        this.setMode('paste');
-                        this.showTemporaryMessage('Paste mode activated - click to place pattern');
-                    } else {
-                        this.showTemporaryMessage('No pattern copied to paste');
-                    }
-                    return;
-            }
-        }
-        
         // Handle delete key for clearing selected cells
         if (e.key === 'Delete' || e.key === 'Backspace') {
             if (this.currentMode === 'selectCell' && this.selectedCells.length > 0) {
@@ -2478,211 +2012,33 @@ class LevelEditor {
         document.getElementById('zoomLevel').textContent = `${this.zoom.toFixed(1)}x`;
     }
     
-    // Cell Shelf Methods
+    // Cell Shelf Methods disabled
     loadCellShelf() {
-        const savedCells = this.getSavedCells();
-        const shelfElement = document.getElementById('cellShelf');
-        shelfElement.innerHTML = '';
-        
-        Object.keys(savedCells).forEach(cellName => {
-            const cellData = savedCells[cellName];
-            this.createCellThumbnail(cellName, cellData, shelfElement);
-        });
+        console.log('Cell shelf disabled');
     }
     
     createCellThumbnail(cellName, cellData, container) {
-        const thumbnail = document.createElement('div');
-        thumbnail.className = 'cell-thumbnail-shelf';
-        thumbnail.setAttribute('data-cell-name', cellName);
-        
-        // Create canvas for cell preview
-        const canvas = document.createElement('canvas');
-        canvas.width = 80;
-        canvas.height = 50;
-        const ctx = canvas.getContext('2d');
-        
-        // Render cell preview
-        this.renderCellPreview(ctx, cellData.data, 80, 50);
-        
-        // Create name label
-        const nameLabel = document.createElement('div');
-        nameLabel.className = 'cell-name';
-        nameLabel.textContent = cellName.replace('cell-', '').replace(/-/g, ':');
-        
-        // Create delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.textContent = '×';
-        deleteBtn.onclick = (e) => {
-            e.stopPropagation();
-            this.deleteCellFromShelf(cellName);
-        };
-        
-        thumbnail.appendChild(canvas);
-        thumbnail.appendChild(nameLabel);
-        thumbnail.appendChild(deleteBtn);
-        
-        // Add drag functionality
-        thumbnail.draggable = true;
-        thumbnail.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', cellName);
-            e.dataTransfer.setData('application/cell-data', JSON.stringify(cellData));
-            thumbnail.style.opacity = '0.5';
-        });
-        
-        thumbnail.addEventListener('dragend', () => {
-            thumbnail.style.opacity = '1';
-        });
-        
-        container.appendChild(thumbnail);
+        console.log('Cell shelf disabled');
     }
     
     renderCellPreview(ctx, cellData, width, height) {
-        ctx.clearRect(0, 0, width, height);
-        
-        if (!cellData || !cellData.length) return;
-        
-        const cellHeight = cellData.length;
-        const cellWidth = cellData[0] ? cellData[0].length : 0;
-        
-        const tileWidth = width / cellWidth;
-        const tileHeight = height / cellHeight;
-        
-        // Draw cell background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        
-        // Draw tiles
-        for (let y = 0; y < cellHeight; y++) {
-            for (let x = 0; x < cellWidth; x++) {
-                const tileValue = cellData[y][x];
-                if (tileValue !== 0) {
-                    switch (tileValue) {
-                        case 1: // Blockout
-                            ctx.fillStyle = '#000000';
-                            break;
-                        case 2: // Connection tile
-                            ctx.fillStyle = '#ffff00';
-                            break;
-                    }
-                    ctx.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
-                }
-            }
-        }
+        console.log('Cell shelf disabled');
     }
     
     deleteCellFromShelf(cellName) {
-        if (confirm(`Delete cell "${cellName}"?`)) {
-            const savedCells = this.getSavedCells();
-            delete savedCells[cellName];
-            localStorage.setItem('patternLibrary', JSON.stringify(savedCells));
-            this.loadCellShelf(); // Refresh shelf
-        }
+        console.log('Cell shelf disabled');
     }
     
     setupCellShelfDragDrop() {
-        const dropZone = document.getElementById('shelfDropZone');
-        const canvas = this.canvas;
-        
-        // Setup drop zone for saving cells
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-        
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-        
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            
-            // Only allow drop if we have a selected cell
-            if (this.selectedCells.length > 0) {
-                this.saveCellToShelf();
-            } else {
-                alert('Please select a cell first!');
-            }
-        });
-        
-        // Setup canvas for placing cells
-        canvas.addEventListener('dragover', (e) => {
-            e.preventDefault();
-        });
-        
-        canvas.addEventListener('drop', (e) => {
-            e.preventDefault();
-            
-            const cellName = e.dataTransfer.getData('text/plain');
-            const cellDataStr = e.dataTransfer.getData('application/cell-data');
-            
-            if (cellName && cellDataStr) {
-                try {
-                    const cellData = JSON.parse(cellDataStr);
-                    this.placeCellFromShelf(e, cellData);
-                } catch (error) {
-                    console.error('Error parsing cell data:', error);
-                }
-            }
-        });
+        console.log('Cell shelf disabled');
     }
     
     saveCellToShelf() {
-        if (this.selectedCells.length === 0) return;
-        
-        // Use the first selected cell
-        const selectedCell = this.selectedCells[0];
-        
-        // Generate auto name with timestamp
-        const now = new Date();
-        const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-');
-        const cellName = `cell-${timestamp}`;
-        
-        // Get cell data
-        const cellData = this.getCellData(selectedCell.x, selectedCell.y);
-        
-        // Create pattern library entry
-        const cellEntry = {
-            name: cellName,
-            timestamp: now.toISOString(),
-            cellSize: { width: this.cellWidth, height: this.cellHeight },
-            data: cellData,
-            isActive: this.isCellActive(selectedCell.x, selectedCell.y),
-            version: '1.0'
-        };
-        
-        // Save to localStorage
-        const savedCells = this.getSavedCells();
-        savedCells[cellName] = cellEntry;
-        localStorage.setItem('patternLibrary', JSON.stringify(savedCells));
-        
-        // Refresh shelf to show new cell
-        this.loadCellShelf();
-        
-        // Show feedback
-        this.showTemporaryMessage(`Cell saved: ${cellName.replace('cell-', '').replace(/-/g, ':')}`);
+        console.log('Cell shelf disabled');
     }
     
     placeCellFromShelf(e, cellData) {
-        // Get the cell position where the drop occurred
-        const tile = this.getTileFromMouse(e);
-        if (!tile) return;
-        
-        const cellX = Math.floor(tile.x / this.cellWidth);
-        const cellY = Math.floor(tile.y / this.cellHeight);
-        
-        // Place the cell data
-        this.setCellData(cellX, cellY, cellData.data);
-        this.render();
-        
-        // Select the placed cell
-        this.selectedCells = [{ x: cellX, y: cellY }];
-        this.updateSelectionUI();
-        document.getElementById('cellMenu').style.display = 'block';
-        
-        // Show feedback
-        this.showTemporaryMessage(`Cell placed at (${cellX}, ${cellY})`);
+        console.log('Cell shelf disabled');
     }
     
     showTemporaryMessage(message) {
