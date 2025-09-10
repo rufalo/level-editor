@@ -41,18 +41,17 @@ export class EventHandler {
         this.lastMouseY = e.clientY - this.canvas.offsetTop;
         
         const tilePos = this.viewportManager.screenToTile(this.lastMouseX, this.lastMouseY);
-        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
         // Emit custom event
-        this.canvas.dispatchEvent(new CustomEvent('cellMouseDown', {
+        this.canvas.dispatchEvent(new CustomEvent('tileMouseDown', {
             detail: {
                 tileX: tilePos.x,
                 tileY: tilePos.y,
-                cellX: cellPos.x,
-                cellY: cellPos.y,
                 button: e.button,
                 ctrlKey: e.ctrlKey,
-                shiftKey: e.shiftKey
+                shiftKey: e.shiftKey,
+                mouseX: this.lastMouseX,
+                mouseY: this.lastMouseY
             }
         }));
     }
@@ -76,14 +75,11 @@ export class EventHandler {
         
         // Emit custom event
         const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
-        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
-        this.canvas.dispatchEvent(new CustomEvent('cellMouseMove', {
+        this.canvas.dispatchEvent(new CustomEvent('tileMouseMove', {
             detail: {
                 tileX: tilePos.x,
                 tileY: tilePos.y,
-                cellX: cellPos.x,
-                cellY: cellPos.y,
                 mouseX: mouseX,
                 mouseY: mouseY
             }
@@ -100,15 +96,12 @@ export class EventHandler {
         const mouseX = e.clientX - this.canvas.offsetLeft;
         const mouseY = e.clientY - this.canvas.offsetTop;
         const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
-        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
         // Emit custom event
-        this.canvas.dispatchEvent(new CustomEvent('cellMouseUp', {
+        this.canvas.dispatchEvent(new CustomEvent('tileMouseUp', {
             detail: {
                 tileX: tilePos.x,
                 tileY: tilePos.y,
-                cellX: cellPos.x,
-                cellY: cellPos.y,
                 button: e.button
             }
         }));
@@ -149,13 +142,6 @@ export class EventHandler {
         return this.viewportManager.screenToTile(this.lastMouseX, this.lastMouseY);
     }
     
-    /**
-     * Get current mouse position in cell coordinates
-     */
-    getMouseCellPosition() {
-        const tilePos = this.getMouseTilePosition();
-        return this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
-    }
     
     /**
      * Check if mouse is currently down

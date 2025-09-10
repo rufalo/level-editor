@@ -5,11 +5,8 @@ export class SettingsManager {
     constructor() {
         this.defaultSettings = {
             // Visual settings
-            showBorders: true,
             showWallIndicators: true,
             showCenterGuides: true,
-            borderColor: '#000000',
-            borderWeight: 3,
             centerGuideColor: '#00008b',
             centerGuideWeight: 5,
             outlineColor: '#ff0000',
@@ -17,18 +14,17 @@ export class SettingsManager {
             wallIndicatorColor: '#808080',
             
             // Grid settings
-            tileSize: 32,
-            cellWidth: 5,
-            cellHeight: 5,
-            totalGridCols: 10,
-            totalGridRows: 10,
+            tileSize: 64,
+            totalGridWidth: 50,
+            totalGridHeight: 50,
             
             // Viewport settings
-            viewportCols: 3,
-            viewportRows: 3,
-            viewportX: 3,
-            viewportY: 3,
+            viewportWidth: 12,
+            viewportHeight: 9,
+            viewportX: 19,
+            viewportY: 20,
             zoom: 1.0,
+            saveZoomLevel: true,
             
             // Canvas settings
             canvasWidth: 800,
@@ -39,6 +35,7 @@ export class SettingsManager {
             // Mode settings
             currentMode: 'paint',
             brushSize: 1,
+            showBrushPreview: true,
             
             // Checker pattern settings
             checkerColor1: '#d0d0d0',
@@ -109,6 +106,11 @@ export class SettingsManager {
                 const parsedSettings = JSON.parse(saved);
                 // Merge with defaults to handle new settings
                 this.settings = { ...this.defaultSettings, ...parsedSettings };
+                
+                // Only reset zoom to 1.0 if saveZoomLevel is false
+                if (!this.settings.saveZoomLevel) {
+                    this.settings.zoom = 1.0;
+                }
             }
         } catch (error) {
             console.error('Failed to load settings:', error);

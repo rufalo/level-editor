@@ -11,7 +11,7 @@ export class ViewportManager {
         this.zoom = this.settings.get('zoom');
         this.viewportX = this.settings.get('viewportX');
         this.viewportY = this.settings.get('viewportY');
-        this.tileSize = this.settings.get('tileSize');
+        // Don't store tileSize here - always get it from gridSystem
         
         this.canvasWidth = this.settings.get('canvasWidth');
         this.canvasHeight = this.settings.get('canvasHeight');
@@ -30,7 +30,11 @@ export class ViewportManager {
      */
     setZoom(newZoom) {
         this.zoom = Math.max(0.1, Math.min(5.0, newZoom));
-        this.settings.set('zoom', this.zoom);
+        
+        // Only save zoom if saveZoomLevel setting is enabled
+        if (this.settings.get('saveZoomLevel')) {
+            this.settings.set('zoom', this.zoom);
+        }
     }
     
     /**
@@ -44,8 +48,8 @@ export class ViewportManager {
      * Set viewport position
      */
     setViewport(x, y) {
-        this.viewportX = Math.max(0, Math.min(this.gridSystem.totalGridCols - this.gridSystem.viewportCols, x));
-        this.viewportY = Math.max(0, Math.min(this.gridSystem.totalGridRows - this.gridSystem.viewportRows, y));
+        this.viewportX = Math.max(0, Math.min(this.gridSystem.totalWidth - this.gridSystem.viewportWidth, x));
+        this.viewportY = Math.max(0, Math.min(this.gridSystem.totalHeight - this.gridSystem.viewportHeight, y));
         this.settings.set('viewportX', this.viewportX);
         this.settings.set('viewportY', this.viewportY);
     }
@@ -102,14 +106,12 @@ export class ViewportManager {
      * Constrain viewport to grid bounds
      */
     constrainViewport() {
-        const gridWidth = this.gridSystem.getGridWidth();
-        const gridHeight = this.gridSystem.getGridHeight();
-        const cellWidth = this.gridSystem.cellWidth;
-        const cellHeight = this.gridSystem.cellHeight;
+        const gridWidth = this.gridSystem.totalWidth;
+        const gridHeight = this.gridSystem.totalHeight;
         const tileSize = this.gridSystem.tileSize;
         
-        const maxPanX = (gridWidth * cellWidth * tileSize) - this.canvas.width / this.zoom;
-        const maxPanY = (gridHeight * cellHeight * tileSize) - this.canvas.height / this.zoom;
+        const maxPanX = (gridWidth * tileSize) - this.canvas.width / this.zoom;
+        const maxPanY = (gridHeight * tileSize) - this.canvas.height / this.zoom;
         
         this.panX = Math.max(0, Math.min(maxPanX, this.panX));
         this.panY = Math.max(0, Math.min(maxPanY, this.panY));
@@ -138,8 +140,9 @@ export class ViewportManager {
      */
     screenToTile(screenX, screenY) {
         const world = this.screenToWorld(screenX, screenY);
-        const tileX = Math.floor(world.x / this.tileSize);
-        const tileY = Math.floor(world.y / this.tileSize);
+        const tileSize = this.gridSystem.tileSize;
+        const tileX = Math.floor(world.x / tileSize);
+        const tileY = Math.floor(world.y / tileSize);
         return { x: tileX, y: tileY };
     }
     
@@ -147,8 +150,9 @@ export class ViewportManager {
      * Convert tile coordinates to screen coordinates
      */
     tileToScreen(tileX, tileY) {
-        const worldX = tileX * this.tileSize;
-        const worldY = tileY * this.tileSize;
+        const tileSize = this.gridSystem.tileSize;
+        const worldX = tileX * tileSize;
+        const worldY = tileY * tileSize;
         return this.worldToScreen(worldX, worldY);
     }
     
@@ -156,8 +160,10 @@ export class ViewportManager {
      * Get visible tile bounds
      */
     getVisibleTileBounds() {
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
         const topLeft = this.screenToTile(0, 0);
-        const bottomRight = this.screenToTile(this.canvasWidth, this.canvasHeight);
+        const bottomRight = this.screenToTile(canvasWidth, canvasHeight);
         
         return {
             startX: Math.max(0, topLeft.x),
@@ -184,11 +190,11 @@ export class ViewportManager {
     }
     
     /**
-     * Center viewport on a specific cell
+     * Center viewport on a specific tile
      */
-    centerOnCell(cellX, cellY) {
-        const centerX = cellX - Math.floor(this.gridSystem.viewportCols / 2);
-        const centerY = cellY - Math.floor(this.gridSystem.viewportRows / 2);
+    centerOnTile(tileX, tileY) {
+        const centerX = tileX - Math.floor(this.gridSystem.viewportWidth / 2);
+        const centerY = tileY - Math.floor(this.gridSystem.viewportHeight / 2);
         this.setViewport(centerX, centerY);
     }
     
@@ -196,22 +202,25 @@ export class ViewportManager {
      * Fit entire grid in viewport
      */
     fitToGrid() {
-        const scaleX = this.canvasWidth / (this.gridSystem.totalWidth * this.tileSize);
-        const scaleY = this.canvasHeight / (this.gridSystem.totalHeight * this.tileSize);
+        const tileSize = this.gridSystem.tileSize;
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+        const scaleX = canvasWidth / (this.gridSystem.totalWidth * tileSize);
+        const scaleY = canvasHeight / (this.gridSystem.totalHeight * tileSize);
         const scale = Math.min(scaleX, scaleY) * 0.9; // 90% to leave some margin
         
         this.setZoom(scale);
         this.setViewport(0, 0);
-        this.panX = (this.canvasWidth - this.gridSystem.totalWidth * this.tileSize * this.zoom) / 2;
-        this.panY = (this.canvasHeight - this.gridSystem.totalHeight * this.tileSize * this.zoom) / 2;
+        this.panX = (canvasWidth - this.gridSystem.totalWidth * tileSize * this.zoom) / 2;
+        this.panY = (canvasHeight - this.gridSystem.totalHeight * tileSize * this.zoom) / 2;
     }
     
     /**
      * Calculate centered viewport position
      */
     calculateCenteredViewport() {
-        const viewportX = Math.floor((this.gridSystem.totalGridCols - this.gridSystem.viewportCols) / 2);
-        const viewportY = Math.floor((this.gridSystem.totalGridRows - this.gridSystem.viewportRows) / 2);
+        const viewportX = Math.floor((this.gridSystem.totalWidth - this.gridSystem.viewportWidth) / 2);
+        const viewportY = Math.floor((this.gridSystem.totalHeight - this.gridSystem.viewportHeight) / 2);
         
         this.settings.set('viewportX', viewportX);
         this.settings.set('viewportY', viewportY);

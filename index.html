@@ -190,6 +190,33 @@
             margin-bottom: 10px;
         }
         
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            margin: 0;
+        }
+        
+        .brush-preview {
+            margin-top: 15px;
+        }
+        
+        .brush-preview-canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f9f9f9;
+            margin-top: 5px;
+            display: inline-block;
+        }
+        
+        .brush-preview canvas {
+            display: block;
+        }
+        
         .color-swatch {
             width: 30px;
             height: 30px;
@@ -263,6 +290,18 @@
                         <label for="brushSize">Brush Size:</label>
                         <input type="range" id="brushSize" min="1" max="5" value="1" step="1">
                         <div class="info">Size: <span id="brushSizeValue">1</span>x<span id="brushSizeValue2">1</span></div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showBrushPreview" checked>
+                            <label for="showBrushPreview">Show brush preview on cursor</label>
+                        </div>
+                        
+                        <div class="brush-preview">
+                            <label>Brush preview:</label>
+                            <div class="brush-preview-canvas">
+                                <canvas id="brushPreviewCanvas" width="100" height="100"></canvas>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Cell Mode removed - starting fresh -->
@@ -281,10 +320,6 @@
                     <div class="control-group">
                         <h3>Visual Settings</h3>
                         
-                        <div class="checkbox-container">
-                            <input type="checkbox" id="showBorders" checked>
-                            <label for="showBorders" class="checkbox-label">Show cell borders</label>
-                        </div>
                         
                         <div class="checkbox-container">
                             <input type="checkbox" id="showCenterGuides" checked>
@@ -297,15 +332,6 @@
                             <input type="color" id="wallIndicatorColor" value="#808080" class="hidden-color-input">
                         </div>
                         
-                        <div class="color-input-group">
-                            <div class="color-swatch" id="borderColorSwatch" style="background-color: #000000;"></div>
-                            <label for="borderColor">Cell border color</label>
-                            <input type="color" id="borderColor" value="#000000" class="hidden-color-input">
-                        </div>
-                        
-                        <label for="borderWeight">Cell border weight:</label>
-                        <input type="range" id="borderWeight" min="1" max="10" value="3" step="1">
-                        <div class="info">Weight: <span id="borderWeightValue">3</span>px</div>
                         
                         <div class="color-input-group">
                             <div class="color-swatch" id="centerGuideColorSwatch" style="background-color: #00008b;"></div>
@@ -329,6 +355,16 @@
                             <input type="color" id="checkerColor2" value="#e6f3ff" class="hidden-color-input">
                         </div>
                         
+                        <label for="tileSize">Tile size:</label>
+                        <input type="range" id="tileSize" min="16" max="128" value="64" step="16">
+                        <div class="info">Size: <span id="tileSizeValue">64</span>px</div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="saveZoomLevel" checked>
+                            <label for="saveZoomLevel">Save zoom level</label>
+                        </div>
+                        
+                        <button id="resetZoom" class="reset-button">Reset Zoom</button>
                         <button id="resetSettings" class="reset-button">Reset to Defaults</button>
                     </div>
                 </div>

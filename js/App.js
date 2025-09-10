@@ -71,6 +71,7 @@ export class App {
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         
+        
         // Keyboard events
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         
@@ -89,15 +90,7 @@ export class App {
      * Setup visual settings
      */
     setupVisualSettings() {
-        // Borders
-        const showBorders = document.getElementById('showBorders');
-        if (showBorders) {
-            showBorders.checked = this.settings.get('showBorders');
-            showBorders.addEventListener('change', (e) => {
-                this.settings.set('showBorders', e.target.checked);
-                this.render();
-            });
-        }
+        // Borders removed - no more cells
         
         
         // Wall indicators
@@ -131,27 +124,7 @@ export class App {
             });
         }
         
-        // Border color
-        const borderColor = document.getElementById('borderColor');
-        if (borderColor) {
-            borderColor.value = this.settings.get('borderColor');
-            borderColor.addEventListener('change', (e) => {
-                this.settings.set('borderColor', e.target.value);
-                this.updateColorSwatches();
-                this.render();
-            });
-        }
-        
-        // Border weight
-        const borderWeight = document.getElementById('borderWeight');
-        if (borderWeight) {
-            borderWeight.value = this.settings.get('borderWeight');
-            borderWeight.addEventListener('input', (e) => {
-                this.settings.set('borderWeight', parseInt(e.target.value));
-                document.getElementById('borderWeightValue').textContent = e.target.value;
-                this.render();
-            });
-        }
+        // Border settings removed - no more cells
         
         // Center guide color
         const centerGuideColor = document.getElementById('centerGuideColor');
@@ -197,6 +170,47 @@ export class App {
             });
         }
         
+        // Tile size
+        const tileSize = document.getElementById('tileSize');
+        if (tileSize) {
+            tileSize.value = this.settings.get('tileSize');
+            document.getElementById('tileSizeValue').textContent = this.settings.get('tileSize');
+            tileSize.addEventListener('input', (e) => {
+                const size = parseInt(e.target.value);
+                this.settings.set('tileSize', size);
+                document.getElementById('tileSizeValue').textContent = size;
+                
+                // Update grid system with new tile size
+                this.gridSystem.tileSize = size;
+                this.gridSystem.updateDimensions();
+                
+                // Recalculate viewport to maintain visual consistency
+                this.viewportManager.calculateCenteredViewport();
+                
+                this.render();
+            });
+        }
+        
+        // Save zoom level checkbox
+        const saveZoomLevel = document.getElementById('saveZoomLevel');
+        if (saveZoomLevel) {
+            saveZoomLevel.checked = this.settings.get('saveZoomLevel');
+            saveZoomLevel.addEventListener('change', (e) => {
+                this.settings.set('saveZoomLevel', e.target.checked);
+            });
+        }
+        
+        // Reset zoom button
+        const resetZoom = document.getElementById('resetZoom');
+        if (resetZoom) {
+            resetZoom.addEventListener('click', () => {
+                this.viewportManager.setZoom(1.0);
+                this.viewportManager.calculateCenteredViewport();
+                this.render();
+                this.showTemporaryMessage('Zoom reset to 1.0');
+            });
+        }
+        
         // Brush size
         const brushSize = document.getElementById('brushSize');
         if (brushSize) {
@@ -207,8 +221,22 @@ export class App {
                 document.getElementById('brushSizeValue').textContent = size;
                 document.getElementById('brushSizeValue2').textContent = size;
                 this.editor.brushSize = size;
+                this.updateBrushPreview();
             });
         }
+        
+        // Show brush preview checkbox
+        const showBrushPreview = document.getElementById('showBrushPreview');
+        if (showBrushPreview) {
+            showBrushPreview.checked = this.settings.get('showBrushPreview');
+            showBrushPreview.addEventListener('change', (e) => {
+                this.settings.set('showBrushPreview', e.target.checked);
+                this.render(); // Re-render to show/hide brush preview
+            });
+        }
+        
+        // Initialize brush preview
+        this.updateBrushPreview();
         
         this.updateColorSwatches();
     }
@@ -247,13 +275,126 @@ export class App {
     }
     
     /**
+     * Update brush preview canvas
+     */
+    updateBrushPreview() {
+        const canvas = document.getElementById('brushPreviewCanvas');
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        const size = this.settings.get('brushSize');
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Set up grid
+        const tileSize = 20; // Fixed size for preview
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        // Draw grid background
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw grid lines
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= canvas.width; x += tileSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = 0; y <= canvas.height; y += tileSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+        
+        // Get brush tiles using the same pattern as the actual brush
+        const brushTiles = this.getBrushTilesForPreview(size);
+        
+        // Draw brush preview
+        ctx.fillStyle = 'rgba(0, 150, 255, 0.3)';
+        ctx.strokeStyle = '#0096ff';
+        ctx.lineWidth = 2;
+        
+        for (const {x, y} of brushTiles) {
+            const brushX = centerX + (x * tileSize) - (tileSize / 2);
+            const brushY = centerY + (y * tileSize) - (tileSize / 2);
+            
+            // Brush fill
+            ctx.fillRect(brushX, brushY, tileSize, tileSize);
+            
+            // Brush border
+            ctx.strokeRect(brushX, brushY, tileSize, tileSize);
+        }
+        
+        // Center crosshair
+        ctx.strokeStyle = '#0096ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(centerX - 5, centerY);
+        ctx.lineTo(centerX + 5, centerY);
+        ctx.moveTo(centerX, centerY - 5);
+        ctx.lineTo(centerX, centerY + 5);
+        ctx.stroke();
+    }
+    
+    /**
+     * Get brush tiles for preview - using the same pattern as Editor.getBrushTiles
+     */
+    getBrushTilesForPreview(brushSize) {
+        const tiles = [];
+        
+        if (brushSize === 1) {
+            // Size 1: Just center tile
+            tiles.push({x: 0, y: 0});
+        } else if (brushSize === 2) {
+            // Size 2: Plus pattern (center + 4 directions)
+            tiles.push({x: 0, y: 0});         // center
+            tiles.push({x: -1, y: 0});        // left
+            tiles.push({x: 1, y: 0});         // right
+            tiles.push({x: 0, y: -1});        // up
+            tiles.push({x: 0, y: 1});         // down
+        } else if (brushSize === 3) {
+            // Size 3: Full 3x3 square
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    tiles.push({x: dx, y: dy});
+                }
+            }
+        } else if (brushSize === 4) {
+            // Size 4: 3x3 center + extensions (13 tiles total)
+            // First add 3x3 center
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    tiles.push({x: dx, y: dy});
+                }
+            }
+            // Add extensions in 4 directions
+            tiles.push({x: -2, y: 0});        // far left
+            tiles.push({x: 2, y: 0});         // far right
+            tiles.push({x: 0, y: -2});        // far up
+            tiles.push({x: 0, y: 2});         // far down
+        } else if (brushSize === 5) {
+            // Size 5: Full 5x5 square
+            for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    tiles.push({x: dx, y: dy});
+                }
+            }
+        }
+        
+        return tiles;
+    }
+    
+    /**
      * Update color swatches
      */
     updateColorSwatches() {
-        const borderColorSwatch = document.getElementById('borderColorSwatch');
-        if (borderColorSwatch) {
-            borderColorSwatch.style.backgroundColor = this.settings.get('borderColor');
-        }
+        // Border color swatch removed - no more cells
         
         const centerGuideColorSwatch = document.getElementById('centerGuideColorSwatch');
         if (centerGuideColorSwatch) {
@@ -296,14 +437,11 @@ export class App {
         
         // Convert to tile coordinates
         const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
-        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
-        // Delegate to blockout mode
+        // Delegate to editor
         this.editor.handleMouseDown({
             tileX: tilePos.x,
             tileY: tilePos.y,
-            cellX: cellPos.x,
-            cellY: cellPos.y,
             button: e.button,
             ctrlKey: e.ctrlKey,
             shiftKey: e.shiftKey,
@@ -325,17 +463,20 @@ export class App {
         
         // Convert to tile coordinates
         const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
-        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
-        // Delegate to blockout mode
+        // Update editor mouse position for brush preview
+        this.editor.updateMousePosition(mouseX, mouseY);
+        
+        // Delegate to editor
         this.editor.handleMouseMove({
             tileX: tilePos.x,
             tileY: tilePos.y,
-            cellX: cellPos.x,
-            cellY: cellPos.y,
             mouseX: mouseX,
             mouseY: mouseY
         });
+        
+        // Re-render to show brush preview
+        this.render();
     }
     
     /**
@@ -348,17 +489,15 @@ export class App {
         
         // Convert to tile coordinates
         const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
-        const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
-        // Delegate to blockout mode
+        // Delegate to editor
         this.editor.handleMouseUp({
             tileX: tilePos.x,
             tileY: tilePos.y,
-            cellX: cellPos.x,
-            cellY: cellPos.y,
             button: e.button
         });
     }
+    
     
     /**
      * Handle wheel events for zooming and brush size
@@ -473,7 +612,6 @@ export class App {
     getLevelData() {
         return {
             tileData: this.editor.tileData,
-            activeCells: this.editor.activeCells,
             settings: this.settings.getAll()
         };
     }
@@ -484,9 +622,6 @@ export class App {
     setLevelData(levelData) {
         if (levelData.tileData) {
             this.editor.tileData = levelData.tileData;
-        }
-        if (levelData.activeCells) {
-            this.editor.activeCells = levelData.activeCells;
         }
         if (levelData.settings) {
             this.settings.update(levelData.settings);

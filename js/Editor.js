@@ -10,8 +10,7 @@ export class Editor {
         this.canvasRenderer = canvasRenderer;
         this.eventHandler = eventHandler;
         
-        // Cell activity state
-        this.activeCells = new Set();
+        // No cell tracking needed - working directly with tiles
         
         // Initialize tile data
         this.tileData = [];
@@ -20,6 +19,8 @@ export class Editor {
         // Drawing state
         this.isDrawing = false;
         this.lastDrawnTile = null;
+        this.mouseX = 0;
+        this.mouseY = 0;
         this.isShiftPressed = false;
         
         // Wall indicator system
@@ -59,7 +60,7 @@ export class Editor {
      * Handle mouse down
      */
     handleMouseDown(detail) {
-        const { tileX, tileY, cellX, cellY, button, ctrlKey, shiftKey } = detail;
+        const { tileX, tileY, button, ctrlKey, shiftKey } = detail;
         
         if (button === 1) {
             // Start panning (middle-click)
@@ -73,14 +74,14 @@ export class Editor {
             this.lastDrawnTile = null;
             this.drawingMode = button === 0 ? 'draw' : 'erase';
             this.isShiftPressed = shiftKey;
-            this.handleTileInteraction(tileX, tileY, cellX, cellY, shiftKey, button);
+            this.handleTileInteraction(tileX, tileY, shiftKey, button);
         }
     }
     
     /**
      * Handle tile interaction (painting)
      */
-    handleTileInteraction(tileX, tileY, cellX, cellY, shiftKey, button) {
+    handleTileInteraction(tileX, tileY, shiftKey, button) {
         if (!this.gridSystem.isValidTile(tileX, tileY)) return;
         
         // Prevent drawing on the same tile multiple times during drag
@@ -92,15 +93,12 @@ export class Editor {
         
         this.lastDrawnTile = { x: tileX, y: tileY };
         
-        // Apply brush to area around clicked tile
-        const affectedCells = new Set();
-        
         // Get list of tiles to affect based on brush pattern
         const tilesToAffect = this.getBrushTiles(tileX, tileY);
         
         for (const {x: targetX, y: targetY} of tilesToAffect) {
             // Check bounds
-            if (targetX >= 0 && targetX < this.gridSystem.totalWidth && targetY >= 0 && targetY < this.gridSystem.totalHeight) {
+            if (this.gridSystem.isValidTile(targetX, targetY)) {
                 // Handle different drawing modes
                 if (this.currentMode === 'paint') {
                     // Paint mode: direct tile painting with shift eraser
@@ -113,19 +111,8 @@ export class Editor {
                         this.tileData[targetY][targetX] = -1; // Right click = eraser mode (transparent)
                     }
                 }
-                
-                // Track affected cells for activity updates
-                const cellX = Math.floor(targetX / this.gridSystem.cellWidth);
-                const cellY = Math.floor(targetY / this.gridSystem.cellHeight);
-                affectedCells.add(this.gridSystem.getCellKey(cellX, cellY));
             }
         }
-        
-        // Update cell activity for affected cells
-        affectedCells.forEach(cellKey => {
-            const { x, y } = this.gridSystem.parseCellKey(cellKey);
-            this.updateCellActivity(x, y);
-        });
         
         // Update wall indicators after tile interaction
         this.applyWallIndicators();
@@ -186,7 +173,7 @@ export class Editor {
      * Handle mouse move
      */
     handleMouseMove(detail) {
-        const { tileX, tileY, cellX, cellY, mouseX, mouseY } = detail;
+        const { tileX, tileY, mouseX, mouseY } = detail;
         
         // Handle panning
         if (this.viewportManager.isPanning) {
@@ -197,7 +184,7 @@ export class Editor {
         
         // Handle continuous drawing
         if (this.isDrawing && this.currentMode === 'paint') {
-            this.handleTileInteraction(tileX, tileY, cellX, cellY, this.isShiftPressed, this.drawingMode === 'draw' ? 0 : 2);
+            this.handleTileInteraction(tileX, tileY, this.isShiftPressed, this.drawingMode === 'draw' ? 0 : 2);
         }
     }
     
@@ -205,8 +192,6 @@ export class Editor {
      * Handle mouse up
      */
     handleMouseUp(detail) {
-        const { cellX, cellY } = detail;
-        
         this.viewportManager.stopPan();
         
         // Stop drawing
@@ -224,32 +209,6 @@ export class Editor {
         const { key, preventDefault } = detail;
     }
     
-    /**
-     * Update cell activity
-     */
-    updateCellActivity(cellX, cellY) {
-        const cellKey = this.gridSystem.getCellKey(cellX, cellY);
-        const tile = this.gridSystem.getTileFromCell(cellX, cellY);
-        
-        let hasContent = false;
-        for (let y = tile.startY; y < tile.endY; y++) {
-            for (let x = tile.startX; x < tile.endX; x++) {
-                if (y < this.tileData.length && x < this.tileData[y].length) {
-                    if (this.tileData[y][x] !== -1) {
-                        hasContent = true;
-                        break;
-                    }
-                }
-            }
-            if (hasContent) break;
-        }
-        
-        if (hasContent) {
-            this.activeCells.add(cellKey);
-        } else {
-            this.activeCells.delete(cellKey);
-        }
-    }
     
     
     
@@ -297,33 +256,12 @@ export class Editor {
         }
     }
     
-    /**
-     * Get cell neighbors
-     */
-    getCellNeighbors(cellX, cellY) {
-        const neighbors = [];
-        const directions = [
-            { x: -1, y: 0 }, { x: 1, y: 0 },
-            { x: 0, y: -1 }, { x: 0, y: 1 }
-        ];
-        
-        directions.forEach(dir => {
-            const neighborX = cellX + dir.x;
-            const neighborY = cellY + dir.y;
-            if (this.gridSystem.isValidCell(neighborX, neighborY)) {
-                neighbors.push({ x: neighborX, y: neighborY });
-            }
-        });
-        
-        return neighbors;
-    }
     
     /**
      * Clear entire grid
      */
     clearGrid() {
         this.initializeTileData();
-        this.activeCells.clear();
         this.wallIndicators.clear();
         this.render();
     }
@@ -334,6 +272,14 @@ export class Editor {
     setMode(mode) {
         this.currentMode = mode;
         this.render();
+    }
+    
+    /**
+     * Update mouse position for brush preview
+     */
+    updateMousePosition(x, y) {
+        this.mouseX = x;
+        this.mouseY = y;
     }
     
     /**
@@ -350,13 +296,12 @@ export class Editor {
         // Draw tile grid lines UNDER the structural grid elements
         this.canvasRenderer.drawTileGridLines();
         
-        if (this.settings.get('showBorders')) {
-            this.canvasRenderer.drawCellBorders();
-        }
-        
         if (this.settings.get('showCenterGuides')) {
             this.canvasRenderer.drawCenterGuides();
         }
+        
+        // Draw brush preview
+        this.canvasRenderer.drawBrushPreview(this.mouseX, this.mouseY, this.brushSize);
     }
     
     /**

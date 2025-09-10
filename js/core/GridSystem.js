@@ -1,5 +1,5 @@
 /**
- * GridSystem - Handles grid calculations and cell management
+ * GridSystem - Handles grid calculations and tile management
  */
 export class GridSystem {
     constructor(settings) {
@@ -11,51 +11,13 @@ export class GridSystem {
      * Update grid dimensions based on settings
      */
     updateDimensions() {
-        this.cellWidth = this.settings.get('cellWidth');
-        this.cellHeight = this.settings.get('cellHeight');
-        this.totalGridCols = this.settings.get('totalGridCols');
-        this.totalGridRows = this.settings.get('totalGridRows');
         this.tileSize = this.settings.get('tileSize');
-        
-        // Calculate total dimensions
-        this.totalWidth = this.totalGridCols * this.cellWidth;
-        this.totalHeight = this.totalGridRows * this.cellHeight;
+        this.totalWidth = this.settings.get('totalGridWidth');
+        this.totalHeight = this.settings.get('totalGridHeight');
         
         // Viewport dimensions
-        this.viewportCols = this.settings.get('viewportCols');
-        this.viewportRows = this.settings.get('viewportRows');
-        this.viewportTileWidth = this.viewportCols * this.cellWidth;
-        this.viewportTileHeight = this.viewportRows * this.cellHeight;
-    }
-    
-    /**
-     * Get cell coordinates from tile coordinates
-     */
-    getCellFromTile(tileX, tileY) {
-        return {
-            x: Math.floor(tileX / this.cellWidth),
-            y: Math.floor(tileY / this.cellHeight)
-        };
-    }
-    
-    /**
-     * Get tile coordinates from cell coordinates
-     */
-    getTileFromCell(cellX, cellY) {
-        return {
-            startX: cellX * this.cellWidth,
-            startY: cellY * this.cellHeight,
-            endX: (cellX + 1) * this.cellWidth,
-            endY: (cellY + 1) * this.cellHeight
-        };
-    }
-    
-    /**
-     * Check if cell coordinates are valid
-     */
-    isValidCell(cellX, cellY) {
-        return cellX >= 0 && cellX < this.totalGridCols && 
-               cellY >= 0 && cellY < this.totalGridRows;
+        this.viewportWidth = this.settings.get('viewportWidth');
+        this.viewportHeight = this.settings.get('viewportHeight');
     }
     
     /**
@@ -67,48 +29,35 @@ export class GridSystem {
     }
     
     /**
-     * Get cell key string for Set operations
+     * Get tile key string for Set operations
      */
-    getCellKey(cellX, cellY) {
-        return `${cellX},${cellY}`;
+    getTileKey(tileX, tileY) {
+        return `${tileX},${tileY}`;
     }
     
     /**
-     * Parse cell key string back to coordinates
+     * Parse tile key string back to coordinates
      */
-    parseCellKey(key) {
+    parseTileKey(key) {
         const [x, y] = key.split(',').map(Number);
         return { x, y };
     }
     
     /**
-     * Get all cells in a rectangular area
+     * Get all tiles in a rectangular area
      */
-    getCellsInArea(startX, startY, endX, endY) {
-        const cells = [];
-        const startCell = this.getCellFromTile(startX, startY);
-        const endCell = this.getCellFromTile(endX, endY);
+    getTilesInArea(startX, startY, endX, endY) {
+        const tiles = [];
         
-        for (let y = startCell.y; y <= endCell.y; y++) {
-            for (let x = startCell.x; x <= endCell.x; x++) {
-                if (this.isValidCell(x, y)) {
-                    cells.push({ x, y });
+        for (let y = startY; y <= endY; y++) {
+            for (let x = startX; x <= endX; x++) {
+                if (this.isValidTile(x, y)) {
+                    tiles.push({ x, y });
                 }
             }
         }
         
-        return cells;
-    }
-    
-    /**
-     * Get center coordinates of a cell
-     */
-    getCellCenter(cellX, cellY) {
-        const tile = this.getTileFromCell(cellX, cellY);
-        return {
-            x: (tile.startX + tile.endX) / 2,
-            y: (tile.startY + tile.endY) / 2
-        };
+        return tiles;
     }
     
     /**
@@ -118,8 +67,7 @@ export class GridSystem {
         return {
             width: this.totalWidth * this.tileSize,
             height: this.totalHeight * this.tileSize,
-            cellWidth: this.cellWidth * this.tileSize,
-            cellHeight: this.cellHeight * this.tileSize
+            tileSize: this.tileSize
         };
     }
     
@@ -127,10 +75,12 @@ export class GridSystem {
      * Calculate centered viewport position
      */
     calculateCenteredViewport() {
-        const viewportX = Math.floor((this.totalGridCols - this.viewportCols) / 2);
-        const viewportY = Math.floor((this.totalGridRows - this.viewportRows) / 2);
+        const viewportX = Math.floor((this.totalWidth - this.viewportWidth) / 2);
+        const viewportY = Math.floor((this.totalHeight - this.viewportHeight) / 2);
         
         this.settings.set('viewportX', viewportX);
         this.settings.set('viewportY', viewportY);
     }
 }
+
+

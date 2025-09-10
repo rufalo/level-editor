@@ -9,7 +9,7 @@ export class CanvasRenderer {
         this.gridSystem = gridSystem;
         this.viewportManager = viewportManager;
         
-        this.tileSize = this.settings.get('tileSize');
+        // Don't store tileSize here - always get it from gridSystem
     }
     
     /**
@@ -42,6 +42,7 @@ export class CanvasRenderer {
         
         const visibleBounds = this.viewportManager.getVisibleTileBounds();
         
+        
         // Draw tile grid lines
         this.ctx.strokeStyle = '#cccccc';
         this.ctx.lineWidth = 1 / this.viewportManager.getZoom();
@@ -49,19 +50,19 @@ export class CanvasRenderer {
         
         // Vertical lines
         for (let x = visibleBounds.startX; x <= visibleBounds.endX; x++) {
-            const screenX = x * this.tileSize;
+            const screenX = x * this.gridSystem.tileSize;
             this.ctx.beginPath();
-            this.ctx.moveTo(screenX, visibleBounds.startY * this.tileSize);
-            this.ctx.lineTo(screenX, visibleBounds.endY * this.tileSize);
+            this.ctx.moveTo(screenX, visibleBounds.startY * this.gridSystem.tileSize);
+            this.ctx.lineTo(screenX, visibleBounds.endY * this.gridSystem.tileSize);
             this.ctx.stroke();
         }
         
         // Horizontal lines
         for (let y = visibleBounds.startY; y <= visibleBounds.endY; y++) {
-            const screenY = y * this.tileSize;
+            const screenY = y * this.gridSystem.tileSize;
             this.ctx.beginPath();
-            this.ctx.moveTo(visibleBounds.startX * this.tileSize, screenY);
-            this.ctx.lineTo(visibleBounds.endX * this.tileSize, screenY);
+            this.ctx.moveTo(visibleBounds.startX * this.gridSystem.tileSize, screenY);
+            this.ctx.lineTo(visibleBounds.endX * this.gridSystem.tileSize, screenY);
             this.ctx.stroke();
         }
         
@@ -74,55 +75,113 @@ export class CanvasRenderer {
     drawCheckerPattern(visibleBounds) {
         const checkerColor1 = this.settings.get('checkerColor1');
         const checkerColor2 = this.settings.get('checkerColor2');
+        const checkerSize = this.gridSystem.tileSize / 2; // Half the size of main tiles
         
         for (let y = visibleBounds.startY; y < visibleBounds.endY; y++) {
             for (let x = visibleBounds.startX; x < visibleBounds.endX; x++) {
-                const isEven = (x + y) % 2 === 0;
-                const color = isEven ? checkerColor1 : checkerColor2;
-                
-                this.ctx.fillStyle = color;
-                this.ctx.fillRect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize);
+                // Draw 4 checker squares per tile (2x2 grid)
+                for (let dy = 0; dy < 2; dy++) {
+                    for (let dx = 0; dx < 2; dx++) {
+                        const checkerX = x * this.gridSystem.tileSize + dx * checkerSize;
+                        const checkerY = y * this.gridSystem.tileSize + dy * checkerSize;
+                        const isEven = ((x * 2 + dx) + (y * 2 + dy)) % 2 === 0;
+                        const color = isEven ? checkerColor1 : checkerColor2;
+                        
+                        this.ctx.fillStyle = color;
+                        this.ctx.fillRect(checkerX, checkerY, checkerSize, checkerSize);
+                    }
+                }
             }
         }
     }
     
+    
     /**
-     * Draw cell borders
+     * Draw brush preview at cursor position
      */
-    drawCellBorders() {
-        if (!this.settings.get('showBorders')) return;
+    drawBrushPreview(mouseX, mouseY, brushSize) {
+        if (!this.settings.get('showBrushPreview')) return;
         
-        this.viewportManager.applyTransform();
+        // Convert screen coordinates to tile coordinates
+        const tilePos = this.viewportManager.screenToTile(mouseX, mouseY);
+        const tileX = tilePos.x;
+        const tileY = tilePos.y;
         
-        const borderColor = this.settings.get('borderColor');
-        const borderWeight = this.settings.get('borderWeight') / this.viewportManager.getZoom();
+        // Check if tile is valid
+        if (!this.gridSystem.isValidTile(tileX, tileY)) return;
         
-        this.ctx.strokeStyle = borderColor;
-        this.ctx.lineWidth = borderWeight;
-        this.ctx.setLineDash([]);
+        // Get brush tiles using the same pattern as the actual brush
+        const brushTiles = this.getBrushTiles(tileX, tileY, brushSize);
         
-        const visibleBounds = this.viewportManager.getVisibleTileBounds();
-        const cellWidth = this.gridSystem.cellWidth * this.tileSize;
-        const cellHeight = this.gridSystem.cellHeight * this.tileSize;
+        // Draw brush preview
+        this.ctx.save();
+        this.ctx.strokeStyle = '#ff6b35';
+        this.ctx.fillStyle = 'rgba(100, 255, 53, 0.2)';
+        this.ctx.lineWidth = 0;
+        this.ctx.setLineDash([4, 4]);
         
-        // Draw cell borders
-        for (let cellY = 0; cellY < this.gridSystem.totalGridRows; cellY++) {
-            for (let cellX = 0; cellX < this.gridSystem.totalGridCols; cellX++) {
-                const x = cellX * cellWidth;
-                const y = cellY * cellHeight;
+        for (const {x, y} of brushTiles) {
+            if (this.gridSystem.isValidTile(x, y)) {
+                const screenPos = this.viewportManager.tileToScreen(x, y);
+                const tileSize = this.gridSystem.tileSize * this.viewportManager.getZoom();
                 
-                // Only draw if cell is visible
-                if (x + cellWidth >= visibleBounds.startX * this.tileSize && 
-                    x <= visibleBounds.endX * this.tileSize &&
-                    y + cellHeight >= visibleBounds.startY * this.tileSize && 
-                    y <= visibleBounds.endY * this.tileSize) {
-                    
-                    this.ctx.strokeRect(x, y, cellWidth, cellHeight);
+                // Fill
+                this.ctx.fillRect(screenPos.x, screenPos.y, tileSize, tileSize);
+                
+                // Border
+                this.ctx.strokeRect(screenPos.x, screenPos.y, tileSize, tileSize);
+            }
+        }
+        
+        this.ctx.restore();
+    }
+    
+    /**
+     * Get brush tiles for preview - using the same pattern as Editor.getBrushTiles
+     */
+    getBrushTiles(centerX, centerY, brushSize) {
+        const tiles = [];
+        
+        if (brushSize === 1) {
+            // Size 1: Just center tile
+            tiles.push({x: centerX, y: centerY});
+        } else if (brushSize === 2) {
+            // Size 2: Plus pattern (center + 4 directions)
+            tiles.push({x: centerX, y: centerY});         // center
+            tiles.push({x: centerX - 1, y: centerY});     // left
+            tiles.push({x: centerX + 1, y: centerY});     // right
+            tiles.push({x: centerX, y: centerY - 1});     // up
+            tiles.push({x: centerX, y: centerY + 1});     // down
+        } else if (brushSize === 3) {
+            // Size 3: Full 3x3 square
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    tiles.push({x: centerX + dx, y: centerY + dy});
+                }
+            }
+        } else if (brushSize === 4) {
+            // Size 4: 3x3 center + extensions (13 tiles total)
+            // First add 3x3 center
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    tiles.push({x: centerX + dx, y: centerY + dy});
+                }
+            }
+            // Add extensions in 4 directions
+            tiles.push({x: centerX - 2, y: centerY});     // far left
+            tiles.push({x: centerX + 2, y: centerY});     // far right
+            tiles.push({x: centerX, y: centerY - 2});     // far up
+            tiles.push({x: centerX, y: centerY + 2});     // far down
+        } else if (brushSize === 5) {
+            // Size 5: Full 5x5 square
+            for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    tiles.push({x: centerX + dx, y: centerY + dy});
                 }
             }
         }
         
-        this.viewportManager.restoreTransform();
+        return tiles;
     }
     
     /**
@@ -187,8 +246,9 @@ export class CanvasRenderer {
      * Draw a single tile
      */
     drawTile(tileX, tileY, tileValue) {
-        const x = tileX * this.tileSize;
-        const y = tileY * this.tileSize;
+        const x = tileX * this.gridSystem.tileSize;
+        const y = tileY * this.gridSystem.tileSize;
+        
         
         // Set color based on tile value
         let color = '#ffffff'; // Default white
@@ -200,7 +260,7 @@ export class CanvasRenderer {
         }
         
         this.ctx.fillStyle = color;
-        this.ctx.fillRect(x, y, this.tileSize, this.tileSize);
+        this.ctx.fillRect(x, y, this.gridSystem.tileSize, this.gridSystem.tileSize);
     }
     
     /**
@@ -217,11 +277,11 @@ export class CanvasRenderer {
         
         wallIndicators.forEach(tileKey => {
             const [x, y] = tileKey.split(',').map(Number);
-            const screenX = x * this.tileSize;
-            const screenY = y * this.tileSize;
+            const screenX = x * this.gridSystem.tileSize;
+            const screenY = y * this.gridSystem.tileSize;
             
             // Fill with gray to show wall indicator
-            this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+            this.ctx.fillRect(screenX, screenY, this.gridSystem.tileSize, this.gridSystem.tileSize);
         });
         
         this.viewportManager.restoreTransform();
