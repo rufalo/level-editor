@@ -265,38 +265,15 @@
                         <div class="info">Size: <span id="brushSizeValue">1</span>x<span id="brushSizeValue2">1</span></div>
                     </div>
                     
-                    <div class="control-group">
-                        <h3>Cell Mode</h3>
-                        <button id="selectCellMode" class="tool-button">Select Cell Mode</button>
-                        
-                        <div class="setting">
-                            <label for="dropAction">Drop Action Mode:</label>
-                            <select id="dropAction">
-                                <option value="swap">Swap - Exchange cells</option>
-                                <option value="overwrite">Overwrite - Move and clear original</option>
-                                <option value="duplicate">Duplicate - Copy to destination</option>
-                                <option value="add">Add - Combine patterns (OR)</option>
-                                <option value="subtract">Subtract - Remove patterns (XOR)</option>
-                            </select>
-                        </div>
-                    </div>
+                    <!-- Cell Mode removed - starting fresh -->
                     
-                    <div class="control-group">
-                        <h3>Selected Cell Actions</h3>
-                        <div class="selected-info">Cell (<span id="selectedCellX">0</span>, <span id="selectedCellY">0</span>) selected</div>
-                    </div>
+                    <!-- Selected Cell Actions removed - starting fresh -->
                     
                     <div class="control-group">
                         <h3>Grid Actions</h3>
                         <button id="clearAll" class="clear-button">Clear All</button>
                     </div>
                     
-                    <div class="control-group">
-                        <h3>Export & Save</h3>
-                        <button id="exportJSON" class="action-button">Export JSON</button>
-                        <button id="saveToStorage" class="action-button">Save to Storage</button>
-                        <button id="loadFromStorage" class="action-button">Load from Storage</button>
-                    </div>
                 </div>
                 
                 <!-- Settings Tab Content -->
@@ -312,6 +289,12 @@
                         <div class="checkbox-container">
                             <input type="checkbox" id="showCenterGuides" checked>
                             <label for="showCenterGuides" class="checkbox-label">Show center grid lines</label>
+                        </div>
+                        
+                        <div class="color-input-group">
+                            <div class="color-swatch" id="wallIndicatorColorSwatch" style="background-color: #808080;"></div>
+                            <label for="wallIndicatorColor">Wall indicator color</label>
+                            <input type="color" id="wallIndicatorColor" value="#808080" class="hidden-color-input">
                         </div>
                         
                         <div class="color-input-group">
@@ -384,6 +367,6 @@
         });
     </script>
     
-    <script type="module" src="js/LevelEditor.js"></script>
+    <script type="module" src="js/App.js"></script>
 </body>
 </html>

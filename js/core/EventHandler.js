@@ -23,7 +23,7 @@ export class EventHandler {
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        // Wheel events handled by LevelEditor directly
+        // Wheel events handled by App directly
         
         // Keyboard events
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -171,7 +171,7 @@ export class EventHandler {
         this.canvas.removeEventListener('mousedown', this.handleMouseDown);
         this.canvas.removeEventListener('mousemove', this.handleMouseMove);
         this.canvas.removeEventListener('mouseup', this.handleMouseUp);
-        // Wheel events handled by LevelEditor directly
+        // Wheel events handled by App directly
         document.removeEventListener('keydown', this.handleKeyDown);
     }
 }

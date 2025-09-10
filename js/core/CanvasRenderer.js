@@ -174,6 +174,8 @@ export class CanvasRenderer {
                     if (tileValue !== -1) {
                         this.drawTile(x, y, tileValue);
                     }
+                    // -1 tiles are transparent and show the checker pattern background
+                    // No need to draw anything for them
                 }
             }
         }
@@ -202,122 +204,6 @@ export class CanvasRenderer {
     }
     
     /**
-     * Draw cell selection
-     */
-    drawCellSelection(selectedCells) {
-        if (selectedCells.length === 0) return;
-        
-        this.viewportManager.applyTransform();
-        
-        this.ctx.strokeStyle = '#ffff00';
-        this.ctx.lineWidth = 3 / this.viewportManager.getZoom();
-        this.ctx.setLineDash([]);
-        
-        const cellWidth = this.gridSystem.cellWidth * this.tileSize;
-        const cellHeight = this.gridSystem.cellHeight * this.tileSize;
-        
-        selectedCells.forEach(cell => {
-            const x = cell.x * cellWidth;
-            const y = cell.y * cellHeight;
-            this.ctx.strokeRect(x, y, cellWidth, cellHeight);
-        });
-        
-        this.viewportManager.restoreTransform();
-    }
-    
-    /**
-     * Draw drag preview
-     */
-    drawDragPreview(dragPreviewCells, dragConflicts, swapMode = false) {
-        if (dragPreviewCells.length === 0) return;
-        
-        this.viewportManager.applyTransform();
-        
-        const cellWidth = this.gridSystem.cellWidth * this.tileSize;
-        const cellHeight = this.gridSystem.cellHeight * this.tileSize;
-        
-        // Draw preview cells with different colors based on mode
-        if (swapMode) {
-            // Swap mode: green for preview, orange for conflicts
-            this.ctx.fillStyle = 'rgba(76, 175, 80, 0.3)'; // Semi-transparent green
-            this.ctx.strokeStyle = '#4CAF50';
-        } else {
-            // Overwrite mode: blue for preview, red for conflicts
-            this.ctx.fillStyle = 'rgba(33, 150, 243, 0.3)'; // Semi-transparent blue
-            this.ctx.strokeStyle = '#2196F3';
-        }
-        
-        this.ctx.lineWidth = 2 / this.viewportManager.getZoom();
-        this.ctx.setLineDash([5, 5]); // Dashed line
-        
-        dragPreviewCells.forEach(cell => {
-            const x = cell.x * cellWidth;
-            const y = cell.y * cellHeight;
-            this.ctx.fillRect(x, y, cellWidth, cellHeight);
-            this.ctx.strokeRect(x, y, cellWidth, cellHeight);
-        });
-        
-        // Draw conflict indicators
-        if (dragConflicts.length > 0) {
-            if (swapMode) {
-                // Swap mode: orange for conflicts (will be swapped)
-                this.ctx.fillStyle = 'rgba(255, 152, 0, 0.3)'; // Semi-transparent orange
-                this.ctx.strokeStyle = '#FF9800';
-            } else {
-                // Overwrite mode: red for conflicts (will be overwritten)
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
-                this.ctx.strokeStyle = '#ff0000';
-            }
-            
-            this.ctx.lineWidth = 3 / this.viewportManager.getZoom();
-            this.ctx.setLineDash([]); // Solid line
-            
-            dragConflicts.forEach(cell => {
-                const x = cell.x * cellWidth;
-                const y = cell.y * cellHeight;
-                this.ctx.fillRect(x, y, cellWidth, cellHeight);
-                this.ctx.strokeRect(x, y, cellWidth, cellHeight);
-            });
-        }
-        
-        this.ctx.setLineDash([]); // Reset line dash
-        this.viewportManager.restoreTransform();
-    }
-    
-    /**
-     * Draw selection rectangle
-     */
-    drawSelectionRectangle(selectionStart, selectionEnd) {
-        if (!selectionStart || !selectionEnd) return;
-        
-        this.viewportManager.applyTransform();
-        
-        // Calculate rectangle bounds
-        const startX = Math.min(selectionStart.x, selectionEnd.x);
-        const endX = Math.max(selectionStart.x, selectionEnd.x);
-        const startY = Math.min(selectionStart.y, selectionEnd.y);
-        const endY = Math.max(selectionStart.y, selectionEnd.y);
-        
-        const rectX = startX * this.gridSystem.cellWidth * this.tileSize;
-        const rectY = startY * this.gridSystem.cellHeight * this.tileSize;
-        const rectWidth = (endX - startX + 1) * this.gridSystem.cellWidth * this.tileSize;
-        const rectHeight = (endY - startY + 1) * this.gridSystem.cellHeight * this.tileSize;
-        
-        // Draw selection rectangle
-        this.ctx.strokeStyle = '#2196F3';
-        this.ctx.fillStyle = 'rgba(33, 150, 243, 0.1)'; // Semi-transparent blue
-        this.ctx.lineWidth = 2 / this.viewportManager.getZoom();
-        this.ctx.setLineDash([5, 5]); // Dashed line
-        
-        this.ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
-        this.ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
-        
-        this.ctx.setLineDash([]); // Reset line dash
-        
-        this.viewportManager.restoreTransform();
-    }
-    
-    /**
      * Draw wall indicators - gray wall suggestions around white tiles
      */
     drawWallIndicators(wallIndicators) {
@@ -325,8 +211,8 @@ export class CanvasRenderer {
         
         this.viewportManager.applyTransform();
         
-        // Draw gray fill for wall indicators
-        this.ctx.fillStyle = '#808080'; // Gray color for wall indicators
+        // Draw wall indicators with customizable color
+        this.ctx.fillStyle = this.settings.get('wallIndicatorColor');
         this.ctx.fillRect(0, 0, 0, 0); // Reset fill
         
         wallIndicators.forEach(tileKey => {

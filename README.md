@@ -18,9 +18,6 @@ js/
 ├── modes/                   # Application modes
 │   ├── BlockoutMode.js      # Current level editor
 │   └── LevelEditorMode.js   # Future detailed editor
-├── features/                # Feature modules
-│   ├── ExportSystem.js      # JSON export & web storage
-│   └── PatternLibrary.js    # Future pattern management
 └── utils/                   # Utility modules
     ├── MathUtils.js         # Coordinate transformations
     └── FileUtils.js         # File operations

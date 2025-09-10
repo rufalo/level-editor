@@ -14,6 +14,7 @@ export class SettingsManager {
             centerGuideWeight: 5,
             outlineColor: '#ff0000',
             outlineWeight: 2,
+            wallIndicatorColor: '#808080',
             
             // Grid settings
             tileSize: 32,
@@ -36,16 +37,12 @@ export class SettingsManager {
             gridMarginY: 300,
             
             // Mode settings
-            currentMode: 'selectCell',
+            currentMode: 'paint',
             brushSize: 1,
-            selectedColor: '#ff0000',
             
             // Checker pattern settings
             checkerColor1: '#d0d0d0',
-            checkerColor2: '#e6f3ff',
-            
-            // Selection settings
-            dropAction: 'swap' // Drop action mode: 'swap', 'overwrite', 'duplicate', 'add', 'subtract'
+            checkerColor2: '#e6f3ff'
         };
         
         this.settings = { ...this.defaultSettings };

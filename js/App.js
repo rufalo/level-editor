@@ -1,16 +1,14 @@
 /**
- * LevelEditor - Main application class that coordinates all modules
+ * App - Main application class that coordinates all modules
  */
 import { SettingsManager } from './core/SettingsManager.js';
 import { GridSystem } from './core/GridSystem.js';
 import { ViewportManager } from './core/ViewportManager.js';
 import { CanvasRenderer } from './core/CanvasRenderer.js';
 import { EventHandler } from './core/EventHandler.js';
-import { ExportSystem } from './features/ExportSystem.js';
-import { PatternLibrary } from './features/PatternLibrary.js';
-import { BlockoutMode } from './modes/BlockoutMode.js';
+import { Editor } from './Editor.js';
 
-export class LevelEditor {
+export class App {
     constructor() {
         this.canvas = document.getElementById('tileCanvas');
         this.ctx = this.canvas.getContext('2d');
@@ -26,19 +24,15 @@ export class LevelEditor {
         this.canvasRenderer = new CanvasRenderer(this.canvas, this.settings, this.gridSystem, this.viewportManager);
         this.eventHandler = new EventHandler(this.canvas, this.viewportManager, this.gridSystem, this.settings);
         
-        // Initialize feature modules
-        this.exportSystem = new ExportSystem(this.settings, this.gridSystem);
-        this.patternLibrary = new PatternLibrary();
         
-        // Initialize mode
-        this.blockoutMode = new BlockoutMode(
+        // Initialize editor
+        this.editor = new Editor(
             this.canvas, 
             this.settings, 
             this.gridSystem, 
             this.viewportManager, 
             this.canvasRenderer, 
-            this.eventHandler, 
-            this.exportSystem
+            this.eventHandler
         );
         
         this.currentMode = 'blockout';
@@ -60,7 +54,6 @@ export class LevelEditor {
     setupUI() {
         // Mode buttons
         document.getElementById('paintMode')?.addEventListener('click', () => this.setMode('paint'));
-        document.getElementById('selectCellMode')?.addEventListener('click', () => this.setMode('selectCell'));
         
         // Canvas mouse events - direct handling
         this.canvas.addEventListener('mousedown', (e) => {
@@ -87,8 +80,6 @@ export class LevelEditor {
         // Grid actions
         this.setupGridActions();
         
-        // Export actions
-        this.setupExportActions();
         
         // Settings actions
         this.setupSettingsActions();
@@ -119,12 +110,14 @@ export class LevelEditor {
             });
         }
         
-        // Drop action mode
-        const dropAction = document.getElementById('dropAction');
-        if (dropAction) {
-            dropAction.value = this.settings.get('dropAction');
-            dropAction.addEventListener('change', (e) => {
-                this.settings.set('dropAction', e.target.value);
+        // Wall indicator color
+        const wallIndicatorColor = document.getElementById('wallIndicatorColor');
+        if (wallIndicatorColor) {
+            wallIndicatorColor.value = this.settings.get('wallIndicatorColor');
+            wallIndicatorColor.addEventListener('change', (e) => {
+                this.settings.set('wallIndicatorColor', e.target.value);
+                this.updateColorSwatches();
+                this.render();
             });
         }
         
@@ -213,7 +206,7 @@ export class LevelEditor {
                 this.settings.set('brushSize', size);
                 document.getElementById('brushSizeValue').textContent = size;
                 document.getElementById('brushSizeValue2').textContent = size;
-                this.blockoutMode.brushSize = size;
+                this.editor.brushSize = size;
             });
         }
         
@@ -228,72 +221,12 @@ export class LevelEditor {
         const clearAll = document.getElementById('clearAll');
         if (clearAll) {
             clearAll.addEventListener('click', () => {
-                this.blockoutMode.clearGrid();
+                this.editor.clearGrid();
                 this.showTemporaryMessage('Grid cleared');
             });
         }
     }
     
-    /**
-     * Setup export actions
-     */
-    setupExportActions() {
-        // Export JSON
-        const exportJSON = document.getElementById('exportJSON');
-        if (exportJSON) {
-            exportJSON.addEventListener('click', () => {
-                const jsonData = this.blockoutMode.exportLevel();
-                this.exportSystem.downloadLevelAsFile(
-                    this.blockoutMode.tileData, 
-                    this.blockoutMode.activeCells, 
-                    'level.json'
-                );
-                this.showTemporaryMessage('Level exported to JSON');
-            });
-        }
-        
-        // Save to storage
-        const saveToStorage = document.getElementById('saveToStorage');
-        if (saveToStorage) {
-            saveToStorage.addEventListener('click', () => {
-                const levelName = prompt('Enter level name:', 'level-' + Date.now());
-                if (levelName) {
-                    this.exportSystem.saveLevelToStorage(
-                        this.blockoutMode.tileData, 
-                        this.blockoutMode.activeCells, 
-                        levelName
-                    );
-                    this.showTemporaryMessage(`Level saved as "${levelName}"`);
-                }
-            });
-        }
-        
-        // Load from storage
-        const loadFromStorage = document.getElementById('loadFromStorage');
-        if (loadFromStorage) {
-            loadFromStorage.addEventListener('click', () => {
-                const levels = this.exportSystem.getSavedLevels();
-                if (levels.length === 0) {
-                    this.showTemporaryMessage('No saved levels found');
-                    return;
-                }
-                
-                const levelName = prompt('Enter level name to load:', levels[0].name);
-                if (levelName) {
-                    try {
-                        const levelData = this.exportSystem.loadLevelFromStorage(levelName);
-                        this.blockoutMode.tileData = levelData.tileData;
-                        this.blockoutMode.activeCells = levelData.activeCells;
-                        this.blockoutMode.applyWallIndicators();
-                        this.render();
-                        this.showTemporaryMessage(`Level "${levelName}" loaded`);
-                    } catch (error) {
-                        this.showTemporaryMessage('Failed to load level');
-                    }
-                }
-            });
-        }
-    }
     
     /**
      * Setup settings actions
@@ -336,14 +269,19 @@ export class LevelEditor {
         if (checkerColor2Swatch) {
             checkerColor2Swatch.style.backgroundColor = this.settings.get('checkerColor2');
         }
+        
+        const wallIndicatorColorSwatch = document.getElementById('wallIndicatorColorSwatch');
+        if (wallIndicatorColorSwatch) {
+            wallIndicatorColorSwatch.style.backgroundColor = this.settings.get('wallIndicatorColor');
+        }
     }
     
     /**
      * Set current mode
      */
     setMode(mode) {
-        if (mode === 'paint' || mode === 'selectCell') {
-            this.blockoutMode.setMode(mode);
+        if (mode === 'paint') {
+            this.editor.setMode(mode);
             this.currentMode = 'blockout';
         }
     }
@@ -361,7 +299,7 @@ export class LevelEditor {
         const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
         // Delegate to blockout mode
-        this.blockoutMode.handleMouseDown({
+        this.editor.handleMouseDown({
             tileX: tilePos.x,
             tileY: tilePos.y,
             cellX: cellPos.x,
@@ -390,7 +328,7 @@ export class LevelEditor {
         const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
         // Delegate to blockout mode
-        this.blockoutMode.handleMouseMove({
+        this.editor.handleMouseMove({
             tileX: tilePos.x,
             tileY: tilePos.y,
             cellX: cellPos.x,
@@ -413,7 +351,7 @@ export class LevelEditor {
         const cellPos = this.gridSystem.getCellFromTile(tilePos.x, tilePos.y);
         
         // Delegate to blockout mode
-        this.blockoutMode.handleMouseUp({
+        this.editor.handleMouseUp({
             tileX: tilePos.x,
             tileY: tilePos.y,
             cellX: cellPos.x,
@@ -431,27 +369,27 @@ export class LevelEditor {
         // Check if Ctrl is held for brush size adjustment
         if (e.ctrlKey || e.metaKey) {
             // Brush size adjustment - NO ZOOM
-            const oldBrushSize = this.blockoutMode.brushSize;
+            const oldBrushSize = this.editor.brushSize;
             
             if (e.deltaY < 0) {
                 // Scroll up - increase brush size
-                this.blockoutMode.brushSize = Math.min(5, this.blockoutMode.brushSize + 1);
+                this.editor.brushSize = Math.min(5, this.editor.brushSize + 1);
             } else {
                 // Scroll down - decrease brush size
-                this.blockoutMode.brushSize = Math.max(1, this.blockoutMode.brushSize - 1);
+                this.editor.brushSize = Math.max(1, this.editor.brushSize - 1);
             }
             
-            if (this.blockoutMode.brushSize !== oldBrushSize) {
+            if (this.editor.brushSize !== oldBrushSize) {
                 // Update UI slider
                 const brushSizeInput = document.getElementById('brushSize');
                 if (brushSizeInput) {
-                    brushSizeInput.value = this.blockoutMode.brushSize;
-                    document.getElementById('brushSizeValue').textContent = this.blockoutMode.brushSize;
-                    document.getElementById('brushSizeValue2').textContent = this.blockoutMode.brushSize;
+                    brushSizeInput.value = this.editor.brushSize;
+                    document.getElementById('brushSizeValue').textContent = this.editor.brushSize;
+                    document.getElementById('brushSizeValue2').textContent = this.editor.brushSize;
                 }
                 
                 // Update settings
-                this.settings.set('brushSize', this.blockoutMode.brushSize);
+                this.settings.set('brushSize', this.editor.brushSize);
             }
             
             // Only render, don't zoom
@@ -503,7 +441,7 @@ export class LevelEditor {
                 break;
             default:
                 // Delegate other keys to blockout mode
-                this.blockoutMode.handleKeyDown({
+                this.editor.handleKeyDown({
                     key: e.key,
                     code: e.code,
                     ctrlKey: e.ctrlKey,
@@ -519,14 +457,14 @@ export class LevelEditor {
      * Render the current state
      */
     render() {
-        this.blockoutMode.render();
+        this.editor.render();
     }
     
     /**
      * Show temporary message
      */
     showTemporaryMessage(message) {
-        this.blockoutMode.showTemporaryMessage(message);
+        this.editor.showTemporaryMessage(message);
     }
     
     /**
@@ -534,8 +472,8 @@ export class LevelEditor {
      */
     getLevelData() {
         return {
-            tileData: this.blockoutMode.tileData,
-            activeCells: this.blockoutMode.activeCells,
+            tileData: this.editor.tileData,
+            activeCells: this.editor.activeCells,
             settings: this.settings.getAll()
         };
     }
@@ -545,20 +483,20 @@ export class LevelEditor {
      */
     setLevelData(levelData) {
         if (levelData.tileData) {
-            this.blockoutMode.tileData = levelData.tileData;
+            this.editor.tileData = levelData.tileData;
         }
         if (levelData.activeCells) {
-            this.blockoutMode.activeCells = levelData.activeCells;
+            this.editor.activeCells = levelData.activeCells;
         }
         if (levelData.settings) {
             this.settings.update(levelData.settings);
         }
-        this.blockoutMode.applyWallIndicators();
+        this.editor.applyWallIndicators();
         this.render();
     }
 }
 
 // Initialize the editor when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    window.levelEditor = new LevelEditor();
+    window.levelEditor = new App();
 });
