@@ -268,9 +268,16 @@
                     <div class="control-group">
                         <h3>Cell Mode</h3>
                         <button id="selectCellMode" class="tool-button">Select Cell Mode</button>
-                        <div class="checkbox-container">
-                            <input type="checkbox" id="swapMode" checked>
-                            <label for="swapMode" class="checkbox-label">Swap cells when dragging</label>
+                        
+                        <div class="setting">
+                            <label for="dropAction">Drop Action Mode:</label>
+                            <select id="dropAction">
+                                <option value="swap">Swap - Exchange cells</option>
+                                <option value="overwrite">Overwrite - Move and clear original</option>
+                                <option value="duplicate">Duplicate - Copy to destination</option>
+                                <option value="add">Add - Combine patterns (OR)</option>
+                                <option value="subtract">Subtract - Remove patterns (XOR)</option>
+                            </select>
                         </div>
                     </div>
                     

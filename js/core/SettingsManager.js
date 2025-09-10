@@ -36,13 +36,16 @@ export class SettingsManager {
             gridMarginY: 300,
             
             // Mode settings
-            currentMode: 'paint',
+            currentMode: 'selectCell',
             brushSize: 1,
             selectedColor: '#ff0000',
             
             // Checker pattern settings
             checkerColor1: '#d0d0d0',
-            checkerColor2: '#e6f3ff'
+            checkerColor2: '#e6f3ff',
+            
+            // Selection settings
+            dropAction: 'swap' // Drop action mode: 'swap', 'overwrite', 'duplicate', 'add', 'subtract'
         };
         
         this.settings = { ...this.defaultSettings };

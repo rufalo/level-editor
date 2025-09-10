@@ -47,6 +47,10 @@ export class LevelEditor {
         this.viewportManager.calculateCenteredViewport();
         
         this.setupUI();
+        
+        // Set initial mode from settings
+        this.setMode(this.settings.get('currentMode'));
+        
         this.render();
     }
     
@@ -112,6 +116,15 @@ export class LevelEditor {
             showWallIndicators.addEventListener('change', (e) => {
                 this.settings.set('showWallIndicators', e.target.checked);
                 this.render();
+            });
+        }
+        
+        // Drop action mode
+        const dropAction = document.getElementById('dropAction');
+        if (dropAction) {
+            dropAction.value = this.settings.get('dropAction');
+            dropAction.addEventListener('change', (e) => {
+                this.settings.set('dropAction', e.target.value);
             });
         }
         
